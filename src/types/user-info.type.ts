@@ -29,3 +29,12 @@ export interface ChangeEmailPayload {
   new_code: string;
   password?: string;
 }
+
+export interface ChangePasswordPayload {
+  type: 'email' | 'password';
+  email?: string;
+  code?: string;
+  new_password: string;
+  confirm_password: string;
+  old_password?: string;
+}

@@ -11,9 +11,8 @@ pnpm dev
 open http://localhost:3003
 
 
-## pnpm prisma migrate dev --name init  // 创建数据库表
-## pnpm prisma generate // 生成数据库文件
- 
+
+
 
 ## 运行前请先创建 .env 文件，并填入以下内容
 ```
@@ -31,3 +30,6 @@ QQ_EMAIL_HOST="smtp.qq.com"
 COOKIE_DOMAIN="localhost"
 CORS_ORIGINS="http://localhost:3000"
 ```
+
+## pnpm prisma generate // 生成数据库文件
+## pnpm prisma migrate dev --name init  // 创建数据库表

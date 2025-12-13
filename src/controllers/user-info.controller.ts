@@ -4,16 +4,14 @@ import {
   getLoginUserInfoService,
   updateUserInfoService,
   uploadAvatarService,
-  changeEmailService
+  changeEmailService,
+  changePasswordService,
 } from '../services/user-info.service';
+import { log } from 'console';
+
 
 export async function getLoginUserInfoController(c: any) {
   const user = c.get('user');
-
-  if (!user.user_id) {
-    throw new HTTPException(401, { message: '未登录' });
-  }
-
   const userInfo = await getLoginUserInfoService(user.user_id);
 
   return c.json({
@@ -25,11 +23,6 @@ export async function getLoginUserInfoController(c: any) {
 
 export async function getAccountInfoController(c: any) {
   const user = c.get('user');
-
-  if (!user) {
-    throw new HTTPException(401, { message: '未登录' });
-  }
-
   const accountInfo = await getAccountInfoService(user.user_id);
 
   return c.json({
@@ -41,8 +34,6 @@ export async function getAccountInfoController(c: any) {
 
 export async function uploadAvatarController(c: any) {
   const user = c.get('user');
-  if (!user || !user.user_id) throw new HTTPException(401, { message: '未登录' });
-
   const form = await c.req.formData();
   const file = form.get('file') as File;
 
@@ -58,10 +49,6 @@ export async function uploadAvatarController(c: any) {
 
 export async function updateAccountInfoController(c: any) {
   const user = c.get('user');
-  if (!user || !user.user_id) {
-    throw new HTTPException(401, { message: '未登录' });
-  }
-
   const body = await c.req.json();
 
   await updateUserInfoService(user.user_id, {
@@ -80,9 +67,6 @@ export async function updateAccountInfoController(c: any) {
 
 export async function changeEmailController(c: any) {
   const user = c.get('user');
-  if (!user || !user.user_id) {
-    throw new HTTPException(401, { message: '未登录' });
-  }
   const body = await c.req.json();
   await changeEmailService(user.user_id, {
     type: body.type,
@@ -97,5 +81,25 @@ export async function changeEmailController(c: any) {
     code: 200,
     data: null,
     message: '更新成功',
+  })
+}
+
+
+export async function changePasswordController(c: any) {
+  const user = c.get('user');
+  const body = await c.req.json();
+  log(body.type)
+  await changePasswordService(user.user_id, {
+    type: body.type,
+    email: body.email,
+    code: body.code,
+    old_password: body.old_password,
+    new_password: body.new_password,
+    confirm_password: body.confirm_password,
+  })
+  return c.json({
+    code: 200,
+    data: null,
+    message: '修改密码成功',
   })
 }

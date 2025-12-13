@@ -6,6 +6,7 @@ import {
     updateAccountInfoController,
     uploadAvatarController,
     changeEmailController,
+    changePasswordController,
 } from "../controllers/user-info.controller";
 
 
@@ -15,5 +16,6 @@ user.get('/account-info', jwtMiddleware, getAccountInfoController)
 user.post('/upload-avatar', jwtMiddleware, uploadAvatarController)
 user.post('/update-info', jwtMiddleware, updateAccountInfoController)
 user.post('/change-email', jwtMiddleware, changeEmailController)
+user.post('/change-password',jwtMiddleware,changePasswordController)
 
 export default user;
