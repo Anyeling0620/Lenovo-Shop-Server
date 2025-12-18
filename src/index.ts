@@ -15,7 +15,9 @@ import sendCode from './routes/send-code.routes'
 import user from './routes/user-info.routes'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { join } from 'path'
-import { log } from 'console'
+import products from './routes/product.routes'
+import admin from './routes/admin/admin.routes'
+import { authAdmin } from './middleware/session.middleware'
 
 dotenv.config()
 const PORT = Number(process.env.PORT)
@@ -45,6 +47,10 @@ app.route('/api/auth', authRouter)
 app.route('/api/auth', devices)
 app.route('/api', sendCode)
 app.route('/api/user', user)
+app.route('/api/products',products)
+
+app.use('/admin/*', authAdmin)
+app.route('/admin', admin )
 
 // 全局错误处理
 app.onError((err, c) => {
@@ -90,3 +96,4 @@ test();
 
 
 export default app
+

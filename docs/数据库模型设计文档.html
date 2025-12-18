@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>数据库模型说明（HTML，基于 prisma/schema.prisma）</title>
+<style>
+  body{font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial; color:#222; margin:20px;}
+  .container{max-width:1200px;margin:0 auto;}
+  h1{font-size:24px;margin-bottom:8px;}
+  h2{font-size:20px;margin-top:28px;border-bottom:1px solid #eee;padding-bottom:6px;}
+  table{width:100%;border-collapse:collapse;margin:10px 0 18px;}
+  th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px;}
+  th{background:#f7f7f7;}
+  .meta{color:#666;font-size:13px;margin-bottom:6px;}
+  .fk{background:#f9f9f9;padding:8px;border-left:3px solid #ccc;margin-bottom:14px;}
+  .small{font-size:13px;color:#555;}
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>数据库模型说明（静态 HTML，基于 prisma/schema.prisma）</h1>
+    <p class="meta">说明：每个模型包含功能说明、字段表（字段名 / 类型 / 说明 / 作用）及外键/关联说明。覆盖 schema.prisma 中所有模型。</p>
+
+    <!-- User -->
+    <h2>User — 用户主表</h2>
+    <p class="small">用途：存储用户账号、个人信息及与用户相关的各类反向关联。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>唯一标识用户</td></tr>
+      <tr><td>email</td><td>String (unique)</td><td>邮箱</td><td>登录/联系</td></tr>
+      <tr><td>password</td><td>String</td><td>密码</td><td>认证</td></tr>
+      <tr><td>account</td><td>String (unique)</td><td>账号</td><td>登录标识</td></tr>
+      <tr><td>memberType</td><td>MemberType</td><td>会员类型</td><td>等级/权限</td></tr>
+      <tr><td>gender</td><td>Gender</td><td>性别</td><td>用户信息</td></tr>
+      <tr><td>birthday</td><td>DateTime?</td><td>出生日期</td><td>个人资料</td></tr>
+      <tr><td>avatar</td><td>String?</td><td>头像</td><td>展示</td></tr>
+      <tr><td>nickname</td><td>String?</td><td>昵称</td><td>展示</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>创建时间</td><td>记录</td></tr>
+      <tr><td>updatedAt</td><td>DateTime</td><td>更新时间</td><td>记录</td></tr>
+      <tr><td>logins, carts, userCoupons, ...</td><td>关系数组</td><td>多对一/多对多反向关联</td><td>与其它表建立关系</td></tr>
+    </table>
+    <div class="fk">
+      <strong>外键/关联：</strong>
+      User 与 UserLogin、Cart、UserCoupon、UserVoucher、Order、Comment、ProductEvaluation、AfterSaleComplaint、ReceiptAddress、UserNotification、ServiceSessionRoom、ServiceEvaluation、ServiceNotification、ServiceSessionList 等表有一对多关系（User 为父表）。
+    </div>
+
+    <!-- UserLogin -->
+    <h2>UserLogin — 用户登录记录</h2>
+    <p class="small">用途：记录用户设备、会话与登录时间信息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>唯一标识</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>关联 User</td></tr>
+      <tr><td>deviceName</td><td>String</td><td>设备名称</td><td>设备信息</td></tr>
+      <tr><td>deviceType</td><td>String</td><td>设备类型</td><td>设备分类</td></tr>
+      <tr><td>deviceId</td><td>String</td><td>设备唯一 id</td><td>去重/标识</td></tr>
+      <tr><td>refreshToken</td><td>String</td><td>刷新 token</td><td>会话续期</td></tr>
+      <tr><td>loginAt</td><td>DateTime</td><td>登录时间</td><td>审计</td></tr>
+      <tr><td>logoutAt</td><td>DateTime?</td><td>登出时间</td><td>会话</td></tr>
+      <tr><td>ipAddress</td><td>String?</td><td>IP 地址</td><td>审计/安全</td></tr>
+      <tr><td>userAgent</td><td>String?</td><td>UA</td><td>设备信息</td></tr>
+    </table>
+    <div class="fk"><strong>外键/约束：</strong>@@unique([userId, deviceId])，userId -> User(id)</div>
+
+    <!-- Brand -->
+    <h2>Brand — 品牌表</h2>
+    <p class="small">用途：管理商品品牌信息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>品牌标识</td></tr>
+      <tr><td>name</td><td>String (unique)</td><td>品牌名称</td><td>展示/检索</td></tr>
+      <tr><td>code</td><td>String (unique)</td><td>品牌编码</td><td>系统标识</td></tr>
+      <tr><td>description</td><td>String?</td><td>品牌描述</td><td>展示</td></tr>
+      <tr><td>logo</td><td>String?</td><td>品牌 logo</td><td>展示</td></tr>
+      <tr><td>status</td><td>BrandStatus</td><td>状态</td><td>上下架/启用</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>创建时间</td><td>记录</td></tr>
+      <tr><td>creatorId</td><td>String</td><td>创建者 id</td><td>管理员来源</td></tr>
+      <tr><td>updatedAt</td><td>DateTime</td><td>更新时间</td><td>记录</td></tr>
+      <tr><td>remark</td><td>String?</td><td>备注</td><td>补充信息</td></tr>
+    </table>
+    <div class="fk"><strong>外键/关联：</strong>Brand 与 Product 为一对多（Product.brandId -> Brand.id）。</div>
+
+    <!-- Category -->
+    <h2>Category — 商品品类</h2>
+    <p class="small">用途：管理商品分类与父子层级关系。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>分类标识</td></tr>
+      <tr><td>name</td><td>String</td><td>品类名称</td><td>展示/检索</td></tr>
+      <tr><td>code</td><td>String (unique)</td><td>品类编码</td><td>系统标识</td></tr>
+      <tr><td>parentId</td><td>String?</td><td>父级品类 id</td><td>树形结构</td></tr>
+      <tr><td>status</td><td>CategoryStatus</td><td>状态</td><td>启用/禁用</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>添加时间</td><td>记录</td></tr>
+      <tr><td>creatorId</td><td>String</td><td>添加者 id</td><td>审计</td></tr>
+    </table>
+    <div class="fk"><strong>外键/关联：</strong>parentId -> Category.id（自引用）；Category 与 Product、ShelfProduct、AdminProductCategory 等关联。</div>
+
+    <!-- Product -->
+    <h2>Product — 商品主表</h2>
+    <p class="small">用途：存放商品基础信息与与其它表的反向关系。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>商品标识</td></tr>
+      <tr><td>brandId</td><td>String (FK)</td><td>品牌 id</td><td>关联 Brand</td></tr>
+      <tr><td>categoryId</td><td>String (FK)</td><td>品类 id</td><td>关联 Category</td></tr>
+      <tr><td>name</td><td>String</td><td>商品名称</td><td>展示/检索</td></tr>
+      <tr><td>subTitle</td><td>String?</td><td>副标题</td><td>展示</td></tr>
+      <tr><td>description</td><td>String?</td><td>描述</td><td>详情页</td></tr>
+      <tr><td>mainImage</td><td>String?</td><td>主图</td><td>展示</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>添加时间</td><td>记录</td></tr>
+      <tr><td>creatorId</td><td>String</td><td>添加者 id</td><td>审计</td></tr>
+      <tr><td>updatedAt</td><td>DateTime</td><td>更新时间</td><td>记录</td></tr>
+      <tr><td>status</td><td>ProductStatus</td><td>状态</td><td>上下架/删除</td></tr>
+    </table>
+    <div class="fk"><strong>外键/关联：</strong>brandId -> Brand.id；categoryId -> Category.id；反向关联到 ProductConfig、ProductTagRelation、ProductBanner、ShelfProduct、SeckillProduct、Cart、ProductCouponRelation、OrderItem、ProductEvaluation、ShelfProductItem 等。</div>
+
+    <!-- Tag -->
+    <h2>Tag — 商品标签</h2>
+    <p class="small">用途：为商品打标签用于筛选/展示。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>标签标识</td></tr>
+      <tr><td>name</td><td>String (unique)</td><td>标签名</td><td>展示/检索</td></tr>
+      <tr><td>priority</td><td>Int</td><td>优先级</td><td>排序</td></tr>
+      <tr><td>status</td><td>TagStatus</td><td>状态</td><td>启用/禁用</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>添加时间</td><td>记录</td></tr>
+      <tr><td>creatorId</td><td>String</td><td>创建者 id</td><td>审计</td></tr>
+      <tr><td>remark</td><td>String?</td><td>备注</td><td>补充信息</td></tr>
+    </table>
+    <div class="fk"><strong>外键/关联：</strong>Tag 与 ProductTagRelation 相关联。</div>
+
+    <!-- ProductTagRelation -->
+    <h2>ProductTagRelation — 商品标签关联</h2>
+    <p class="small">用途：多对多表，关联商品与标签。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>记录条目</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联 Product</td></tr>
+      <tr><td>tagId</td><td>String (FK)</td><td>标签 id</td><td>关联 Tag</td></tr>
+      <tr><td>relationTime</td><td>DateTime</td><td>关联时间</td><td>记录</td></tr>
+      <tr><td>status</td><td>RelationStatus</td><td>关联状态</td><td>生效/失效</td></tr>
+    </table>
+    <div class="fk"><strong>外键/约束：</strong>@@unique([productId, tagId])；productId -> Product.id；tagId -> Tag.id。</div>
+
+    <!-- ProductConfig -->
+    <h2>ProductConfig — 商品配置</h2>
+    <p class="small">用途：保存商品的可选配置（颜色/内存/尺寸）及价格。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String (uuid)</td><td>主键</td><td>配置标识</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联 Product</td></tr>
+      <tr><td>config1</td><td>String</td><td>配置1</td><td>如颜色</td></tr>
+      <tr><td>config2</td><td>String</td><td>配置2</td><td>如内存</td></tr>
+      <tr><td>config3</td><td>String?</td><td>配置3</td><td>如尺寸</td></tr>
+      <tr><td>salePrice</td><td>Decimal(10,2)</td><td>售价</td><td>成交价</td></tr>
+      <tr><td>originalPrice</td><td>Decimal(10,2)</td><td>原价</td><td>展示/计算折扣</td></tr>
+      <tr><td>configImage</td><td>String?</td><td>配置图片</td><td>展示</td></tr>
+      <tr><td>createdAt, updatedAt, status</td><td>DateTime/Enum</td><td>时间/状态</td><td>记录/上下架</td></tr>
+    </table>
+    <div class="fk"><strong>外键/关联：</strong>productId -> Product.id；反向关联 Stock、ShelfProductItem、SeckillProductConfig、Cart、OrderItem、ProductEvaluation 等。</div>
+
+    <!-- ProductBanner -->
+    <h2>ProductBanner — 商品宣传图</h2>
+    <p class="small">用途：商品宣传图、排序展示。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联</td></tr>
+      <tr><td>sort</td><td>Int</td><td>序号</td><td>排序</td></tr>
+      <tr><td>image</td><td>String</td><td>宣传图</td><td>展示</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>创建时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk"><strong>索引：</strong>@@index([productId, sort])；productId -> Product.id。</div>
+
+    <!-- ProductAppearance -->
+    <h2>ProductAppearance — 商品外观图</h2>
+    <p class="small">用途：商品外观多图展示。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联</td></tr>
+      <tr><td>image</td><td>String</td><td>外观图</td><td>展示</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>创建时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">productId -> Product.id。</div>
+
+    <!-- ShelfProduct -->
+    <h2>ShelfProduct — 货架商品（展示/上下架项）</h2>
+    <p class="small">用途：控制商品在特定专区/货架的展示与属性（轮播、自营、分期等）。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识货架项</td></tr>
+      <tr><td>categoryId</td><td>String (FK)</td><td>专区/品类 id</td><td>归属专区</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>展示商品</td></tr>
+      <tr><td>isCarousel</td><td>Boolean</td><td>是否轮播</td><td>UI</td></tr>
+      <tr><td>carouselImage</td><td>String?</td><td>轮播海报</td><td>展示</td></tr>
+      <tr><td>isSelfOperated</td><td>Boolean</td><td>是否自营</td><td>标签</td></tr>
+      <tr><td>isCustomizable</td><td>Boolean</td><td>是否可定制</td><td>业务</td></tr>
+      <tr><td>installment</td><td>Int</td><td>分期</td><td>金融选项</td></tr>
+      <tr><td>shelfTime, offShelfTime, updatedAt, status</td><td>Times/Enum</td><td>上下架时间/状态</td><td>控制展示</td></tr>
+    </table>
+    <div class="fk">@@unique([categoryId, productId])；categoryId -> Category.id；productId -> Product.id；反向关联 ShelfProductItem、NewProductPush、HomePush。</div>
+
+    <!-- Stock -->
+    <h2>Stock — 库存表</h2>
+    <p class="small">用途：每个商品配置的库存与冻结数量记录。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录标识</td></tr>
+      <tr><td>configId</td><td>String (FK)</td><td>商品配置 id</td><td>关联 ProductConfig</td></tr>
+      <tr><td>stockNum</td><td>Int</td><td>库存数量</td><td>可售库存</td></tr>
+      <tr><td>freezeNum</td><td>Int</td><td>冻结数量</td><td>锁定库存</td></tr>
+      <tr><td>warnNum</td><td>Int</td><td>预警数量</td><td>库存预警阈值</td></tr>
+      <tr><td>updatedAt</td><td>DateTime</td><td>更新时间</td><td>变更时间</td></tr>
+      <tr><td>lastInTime/lastOutTime</td><td>DateTime?</td><td>入/出库时间</td><td>审计</td></tr>
+    </table>
+    <div class="fk">@@unique([configId])；configId -> ProductConfig.id。</div>
+
+    <!-- ShelfProductItem -->
+    <h2>ShelfProductItem — 上架商品数量</h2>
+    <p class="small">用途：记录货架上某个配置的上架数量与锁定数量。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>shelfProductId</td><td>String (FK)</td><td>货架商品 id</td><td>关联 ShelfProduct</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联 Product</td></tr>
+      <tr><td>configId</td><td>String (FK)</td><td>配置 id</td><td>关联 ProductConfig</td></tr>
+      <tr><td>shelfNum</td><td>Int</td><td>上架数量</td><td>可售数量</td></tr>
+      <tr><td>lockNum</td><td>Int</td><td>锁定数量</td><td>避免超售</td></tr>
+      <tr><td>updatedAt</td><td>DateTime</td><td>更新时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">@@unique([shelfProductId, configId])；shelfProductId -> ShelfProduct.id；productId -> Product.id；configId -> ProductConfig.id。</div>
+
+    <!-- NewProductPush -->
+    <h2>NewProductPush — 新品推送</h2>
+    <p class="small">用途：配置新品专区的推送/轮播信息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>shelfProductId</td><td>String (FK)</td><td>货架商品 id</td><td>关联</td></tr>
+      <tr><td>isCarousel</td><td>Boolean</td><td>是否轮播</td><td>展示</td></tr>
+      <tr><td>carouselImage</td><td>String?</td><td>轮播海报</td><td>展示</td></tr>
+      <tr><td>startTime/endTime</td><td>DateTime</td><td>生效/结束</td><td>时段控制</td></tr>
+      <tr><td>status</td><td>ShelfProductStatus</td><td>状态</td><td>展示控制</td></tr>
+    </table>
+    <div class="fk">@@unique([shelfProductId])；shelfProductId -> ShelfProduct.id。</div>
+
+    <!-- HomePush -->
+    <h2>HomePush — 首页推送</h2>
+    <p class="small">用途：配置首页的商品推送/轮播。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>shelfProductId</td><td>String (FK)</td><td>货架商品 id</td><td>关联</td></tr>
+      <tr><td>isCarousel</td><td>Boolean</td><td>是否轮播</td><td>展示</td></tr>
+      <tr><td>carouselImage</td><td>String?</td><td>轮播海报</td><td>展示</td></tr>
+      <tr><td>startTime/endTime</td><td>DateTime</td><td>生效/结束</td><td>时段控制</td></tr>
+      <tr><td>status</td><td>ShelfProductStatus</td><td>状态</td><td>展示控制</td></tr>
+    </table>
+    <div class="fk">@@unique([shelfProductId])；shelfProductId -> ShelfProduct.id。</div>
+
+    <!-- SeckillRound -->
+    <h2>SeckillRound — 秒杀轮次</h2>
+    <p class="small">用途：定义秒杀时段和轮次信息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识轮次</td></tr>
+      <tr><td>title</td><td>String</td><td>标题</td><td>展示</td></tr>
+      <tr><td>startTime/endTime</td><td>DateTime</td><td>开始/结束</td><td>活动时段</td></tr>
+      <tr><td>status</td><td>SeckillRoundStatus</td><td>状态</td><td>启用/禁用/已结束</td></tr>
+      <tr><td>createdAt</td><td>DateTime</td><td>添加时间</td><td>记录</td></tr>
+      <tr><td>creatorId</td><td>String</td><td>创建者 id</td><td>审计</td></tr>
+      <tr><td>remark</td><td>String?</td><td>备注</td><td>补充</td></tr>
+    </table>
+    <div class="fk">关联 SeckillProduct 多条。</div>
+
+    <!-- SeckillProduct -->
+    <h2>SeckillProduct — 秒杀商品</h2>
+    <p class="small">用途：关联某秒杀轮次下的商品及其优惠方式。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>roundId</td><td>String (FK)</td><td>秒杀轮次 id</td><td>关联 SeckillRound</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联 Product</td></tr>
+      <tr><td>type</td><td>SeckillType</td><td>秒杀方式</td><td>立减/打折</td></tr>
+      <tr><td>reduceAmount</td><td>Decimal</td><td>优惠金额</td><td>金额优惠</td></tr>
+      <tr><td>discount</td><td>Decimal</td><td>折扣率</td><td>折扣</td></tr>
+    </table>
+    <div class="fk">@@unique([roundId, productId])；roundId -> SeckillRound.id；productId -> Product.id；反向关联 SeckillProductConfig。</div>
+
+    <!-- SeckillProductConfig -->
+    <h2>SeckillProductConfig — 秒杀配置</h2>
+    <p class="small">用途：秒杀中每个配置的库存与秒杀价记录。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>seckillProductId</td><td>String (FK)</td><td>秒杀商品 id</td><td>关联</td></tr>
+      <tr><td>configId</td><td>String (FK)</td><td>商品配置 id</td><td>关联</td></tr>
+      <tr><td>shelfNum</td><td>Int</td><td>上架数量</td><td>秒杀库存</td></tr>
+      <tr><td>remainNum</td><td>Int</td><td>剩余数量</td><td>库存管理</td></tr>
+      <tr><td>lockNum</td><td>Int</td><td>锁定数量</td><td>预留</td></tr>
+      <tr><td>seckillPrice</td><td>Decimal</td><td>秒杀价</td><td>成交价</td></tr>
+      <tr><td>createdAt/updatedAt/status</td><td>Time/Enum</td><td>时间/状态</td><td>记录/控制</td></tr>
+    </table>
+    <div class="fk">@@unique([seckillProductId, configId])；seckillProductId -> SeckillProduct.id；configId -> ProductConfig.id。</div>
+
+    <!-- Cart -->
+    <h2>Cart — 购物车</h2>
+    <p class="small">用途：记录用户加入购物车的商品与配置及数量。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>关联 User</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联 Product</td></tr>
+      <tr><td>configId</td><td>String (FK)</td><td>配置 id</td><td>关联 ProductConfig</td></tr>
+      <tr><td>quantity</td><td>Int</td><td>数量</td><td>购买数量</td></tr>
+      <tr><td>status</td><td>CartStatus</td><td>状态</td><td>有效/无效</td></tr>
+      <tr><td>price</td><td>Decimal</td><td>商品价格</td><td>价格快照</td></tr>
+      <tr><td>createdAt/updatedAt</td><td>DateTime</td><td>时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">@@unique([userId, productId, configId])；userId -> User.id；productId -> Product.id；configId -> ProductConfig.id。</div>
+
+    <!-- CouponCenter -->
+    <h2>CouponCenter — 领券中心</h2>
+    <p class="small">用途：控制优惠券可领取的时间与数量。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>couponId</td><td>String (FK)</td><td>优惠券 id</td><td>关联 Coupon</td></tr>
+      <tr><td>startTime</td><td>DateTime</td><td>开始</td><td>可领取开始</td></tr>
+      <tr><td>endTime</td><td>DateTime</td><td>结束</td><td>领取截止</td></tr>
+      <tr><td>totalNum</td><td>Int</td><td>总量</td><td>库存控制</td></tr>
+      <tr><td>limitNum</td><td>Int</td><td>每人限领</td><td>防滥用</td></tr>
+      <tr><td>creatorId/createdAt</td><td>String/DateTime</td><td>创建者/时间</td><td>审计</td></tr>
+    </table>
+    <div class="fk">@@unique([couponId])；couponId -> Coupon.id。</div>
+
+    <!-- Coupon -->
+    <h2>Coupon — 优惠券</h2>
+    <p class="small">用途：定义优惠券规则（满减/折扣等）。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>name</td><td>String</td><td>名称</td><td>展示</td></tr>
+      <tr><td>type</td><td>CouponType</td><td>类型</td><td>满减/折扣</td></tr>
+      <tr><td>amount</td><td>Decimal</td><td>优惠金额</td><td>减免</td></tr>
+      <tr><td>discount</td><td>Decimal</td><td>折扣</td><td>折扣率</td></tr>
+      <tr><td>threshold</td><td>Decimal</td><td>门槛</td><td>使用限制</td></tr>
+      <tr><td>condition/scope</td><td>String?</td><td>使用说明</td><td>规则说明</td></tr>
+      <tr><td>startTime/expireTime</td><td>DateTime</td><td>生效/过期</td><td>时效</td></tr>
+      <tr><td>isStackable</td><td>Boolean</td><td>是否叠加</td><td>组合使用</td></tr>
+      <tr><td>creatorId/createdAt/remark</td><td>String/DateTime/String?</td><td>元数据</td><td>审计/说明</td></tr>
+    </table>
+    <div class="fk">coupon 与 CouponCenter, ProductCouponRelation, UserCoupon 相关联。</div>
+
+    <!-- Voucher -->
+    <h2>Voucher — 代金券</h2>
+    <p class="small">用途：代金券定义，支持用户持有与订单使用记录。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>title</td><td>String</td><td>标题</td><td>展示</td></tr>
+      <tr><td>description</td><td>String?</td><td>描述</td><td>说明</td></tr>
+      <tr><td>originalAmount</td><td>Decimal</td><td>原始金额</td><td>面额</td></tr>
+      <tr><td>startTime/endTime</td><td>DateTime</td><td>生效/结束</td><td>时效</td></tr>
+      <tr><td>creatorId/remark</td><td>String/String?</td><td>元数据</td><td>审计/说明</td></tr>
+    </table>
+    <div class="fk">反向关联 UserVoucher、OrderVoucherRelation。</div>
+
+    <!-- ProductCouponRelation -->
+    <h2>ProductCouponRelation — 商品-优惠券关联</h2>
+    <p class="small">用途：定义某商品可用哪些优惠券。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联</td></tr>
+      <tr><td>couponId</td><td>String (FK)</td><td>优惠券 id</td><td>关联</td></tr>
+      <tr><td>status</td><td>RelationStatus</td><td>状态</td><td>是否生效</td></tr>
+      <tr><td>relationTime</td><td>DateTime</td><td>关联时间</td><td>记录</td></tr>
+      <tr><td>operatorId</td><td>String</td><td>操作人 id</td><td>审计</td></tr>
+      <tr><td>remark</td><td>String?</td><td>备注</td><td>说明</td></tr>
+    </table>
+    <div class="fk">@@unique([productId, couponId])；productId -> Product.id；couponId -> Coupon.id。</div>
+
+    <!-- UserCoupon -->
+    <h2>UserCoupon — 用户优惠券</h2>
+    <p class="small">用途：记录用户领取/使用优惠券的状态与订单关联。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>持有人</td></tr>
+      <tr><td>couponId</td><td>String (FK)</td><td>优惠券 id</td><td>所属优惠</td></tr>
+      <tr><td>status</td><td>UserCouponStatus</td><td>状态</td><td>未使用/已使用/已过期</td></tr>
+      <tr><td>receiveTime/useTime</td><td>DateTime</td><td>领取/使用</td><td>时点</td></tr>
+      <tr><td>orderId</td><td>String?</td><td>关联订单 id</td><td>使用者订单</td></tr>
+      <tr><td>actualAmount</td><td>Decimal</td><td>实际优惠金额</td><td>结算记录</td></tr>
+    </table>
+    <div class="fk">@@unique([userId, couponId, orderId])；userId -> User.id；couponId -> Coupon.id；orderId -> Order.id（可空）。</div>
+
+    <!-- UserVoucher -->
+    <h2>UserVoucher — 用户代金券</h2>
+    <p class="small">用途：记录用户持有的代金券及余额/使用情况。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>持有人</td></tr>
+      <tr><td>voucherId</td><td>String (FK)</td><td>代金券 id</td><td>关联 Voucher</td></tr>
+      <tr><td>status</td><td>Boolean</td><td>状态</td><td>是否有效</td></tr>
+      <tr><td>getTime</td><td>DateTime</td><td>获取时间</td><td>记录</td></tr>
+      <tr><td>useUpTime</td><td>DateTime?</td><td>用尽时间</td><td>记录</td></tr>
+      <tr><td>usedAmount</td><td>Decimal</td><td>已用金额</td><td>余额计算</td></tr>
+      <tr><td>remainAmount</td><td>Decimal</td><td>剩余金额</td><td>可用余额</td></tr>
+    </table>
+    <div class="fk">@@unique([userId, voucherId])；userId -> User.id；voucherId -> Voucher.id。</div>
+
+    <!-- OrderVoucherRelation -->
+    <h2>OrderVoucherRelation — 订单代金券使用</h2>
+    <p class="small">用途：记录订单使用代金券的金额与时间。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>orderId</td><td>String (FK)</td><td>订单 id</td><td>关联 Order</td></tr>
+      <tr><td>voucherId</td><td>String (FK)</td><td>代金券 id</td><td>关联 Voucher</td></tr>
+      <tr><td>usedAmount</td><td>Decimal</td><td>使用金额</td><td>结算</td></tr>
+      <tr><td>useTime</td><td>DateTime</td><td>使用时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">@@unique([orderId, voucherId])；orderId -> Order.id；voucherId -> Voucher.id。</div>
+
+    <!-- OrderItem -->
+    <h2>OrderItem — 订单商品项</h2>
+    <p class="small">用途：订单内单件商品的快照信息与数量、价格快照等。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>orderId</td><td>String (FK)</td><td>订单 id</td><td>关联 Order</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>关联 Product</td></tr>
+      <tr><td>configId</td><td>String (FK)</td><td>配置 id</td><td>关联 ProductConfig</td></tr>
+      <tr><td>quantity</td><td>Int</td><td>数量</td><td>购买量</td></tr>
+      <tr><td>priceSnapshot</td><td>Decimal</td><td>价格快照</td><td>历史结算</td></tr>
+      <tr><td>discountSnapshot</td><td>Decimal</td><td>优惠快照</td><td>结算</td></tr>
+      <tr><td>payAmountSnapshot</td><td>Decimal</td><td>实付快照</td><td>结算</td></tr>
+      <tr><td>nameSnapshot/imageSnapshot/config1/2/3Snapshot</td><td>String</td><td>信息快照</td><td>显示/记录</td></tr>
+    </table>
+    <div class="fk">orderId -> Order.id；productId -> Product.id；configId -> ProductConfig.id；反向关联 AfterSale、Comment。</div>
+
+    <!-- Order -->
+    <h2>Order — 订单主表</h2>
+    <p class="small">用途：记录订单的支付、收货快照、流程时间点与状态。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>订单标识</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>下单用户</td></tr>
+      <tr><td>orderNo</td><td>String (unique)</td><td>订单号</td><td>对外编号</td></tr>
+      <tr><td>status</td><td>OrderStatus</td><td>订单状态</td><td>流程控制</td></tr>
+      <tr><td>payType</td><td>String?</td><td>支付方式</td><td>记录</td></tr>
+      <tr><td>payAmount/actualPayAmount</td><td>Decimal</td><td>金额</td><td>结算</td></tr>
+      <tr><td>payTime</td><td>DateTime?</td><td>支付时间</td><td>记录</td></tr>
+      <tr><td>provinceCode/cityCode/areaCode/streetCode</td><td>String</td><td>收货地址编码（快照）</td><td>收货信息</td></tr>
+      <tr><td>address/receiver/phone</td><td>String</td><td>收货快照</td><td>配送信息</td></tr>
+      <tr><td>logisticsNo</td><td>String?</td><td>物流单号</td><td>追踪</td></tr>
+      <tr><td>createdAt/payLimitTime/cancelTime/shipTime/receiveTime/completeTime</td><td>DateTime</td><td>时间点</td><td>流程</td></tr>
+      <tr><td>isVisible</td><td>Boolean</td><td>用户可见</td><td>软删除/隐藏</td></tr>
+    </table>
+    <div class="fk">userId -> User.id；items -> OrderItem[]；afterSales、userCoupons、vouchers、comments 等关联。</div>
+
+    <!-- AfterSaleImage -->
+    <h2>AfterSaleImage — 售后图片</h2>
+    <p class="small">用途：上传售后单相关图片。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>afterSaleId</td><td>String (FK)</td><td>售后 id</td><td>关联 AfterSale</td></tr>
+      <tr><td>image</td><td>String</td><td>图片路径</td><td>展示/证据</td></tr>
+    </table>
+    <div class="fk">afterSaleId -> AfterSale.id。</div>
+
+    <!-- AfterSale -->
+    <h2>AfterSale — 售后单</h2>
+    <p class="small">用途：退换修单，包含流程时间、寄回/寄出信息及快照。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>售后标识</td></tr>
+      <tr><td>orderId</td><td>String (FK)</td><td>订单 id</td><td>来源订单</td></tr>
+      <tr><td>afterSaleNo</td><td>String (unique)</td><td>售后单号</td><td>对外编号</td></tr>
+      <tr><td>orderItemId</td><td>String (FK)</td><td>订单商品 id</td><td>关联商品项</td></tr>
+      <tr><td>type</td><td>AfterSaleType</td><td>类型</td><td>退/换/修</td></tr>
+      <tr><td>status</td><td>AfterSaleStatus</td><td>状态</td><td>流程</td></tr>
+      <tr><td>reason</td><td>String</td><td>原因</td><td>用户申诉</td></tr>
+      <tr><td>remark/applyTime/agreeTime/rejectTime</td><td>String/DateTime</td><td>元数据</td><td>流程记录</td></tr>
+      <tr><td>userLogisticsNo/merchantLogisticsNo</td><td>String?</td><td>运单号</td><td>物流</td></tr>
+      <tr><td>receiverProvince/city/area/street/address/name/phone</td><td>String</td><td>收货快照</td><td>回寄地址</td></tr>
+      <tr><td>shipProvince/shipCity/shipArea/shipStreet/shipAddress/shipName/shipPhone</td><td>String?</td><td>商家寄出信息</td><td>发货信息</td></tr>
+      <tr><td>sendBackTime/sendOutTime/completeTime</td><td>DateTime?</td><td>时间点</td><td>流程</td></tr>
+      <tr><td>handlerId</td><td>String?</td><td>处理者 id</td><td>管理员</td></tr>
+    </table>
+    <div class="fk">orderId -> Order.id；orderItemId -> OrderItem.id；关联 AfterSaleImage、AfterSaleComplaint。</div>
+
+    <!-- CommentImage -->
+    <h2>CommentImage — 吐槽/评论图片</h2>
+    <p class="small">用途：存放用户吐槽/评论的图片。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>commentId</td><td>String (FK)</td><td>吐槽 id</td><td>关联 Comment</td></tr>
+      <tr><td>image</td><td>String</td><td>图片路径</td><td>展示</td></tr>
+    </table>
+    <div class="fk">commentId -> Comment.id。</div>
+
+    <!-- Comment -->
+    <h2>Comment — 用户吐槽/评论</h2>
+    <p class="small">用途：用户对订单/商品的吐槽或评论，带状态与回复。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>作者</td></tr>
+      <tr><td>orderId</td><td>String (FK)</td><td>订单 id</td><td>关联订单</td></tr>
+      <tr><td>orderItemId</td><td>String (FK)</td><td>订单商品 id</td><td>关联商品项</td></tr>
+      <tr><td>content</td><td>String</td><td>吐槽内容</td><td>主体</td></tr>
+      <tr><td>likeNum</td><td>Int</td><td>点赞数</td><td>互动</td></tr>
+      <tr><td>createdAt/updatedAt</td><td>DateTime</td><td>时间</td><td>记录</td></tr>
+      <tr><td>status</td><td>CommentStatus</td><td>状态</td><td>撤回/删除等</td></tr>
+    </table>
+    <div class="fk">userId -> User.id；orderId -> Order.id（关系名 CommentOrder）；orderItemId -> OrderItem.id；反向关联 CommentImage、CommentReply。</div>
+
+    <!-- CommentReply -->
+    <h2>CommentReply — 商家回复吐槽</h2>
+    <p class="small">用途：管理员对吐槽的回复记录。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>commentId</td><td>String (FK)</td><td>吐槽 id</td><td>关联 Comment</td></tr>
+      <tr><td>content</td><td>String</td><td>回复内容</td><td>商家答复</td></tr>
+      <tr><td>replyTime</td><td>DateTime</td><td>回复时间</td><td>记录</td></tr>
+      <tr><td>replierId</td><td>String (FK)</td><td>回复者 id（管理员）</td><td>管理员</td></tr>
+      <tr><td>likeNum</td><td>Int</td><td>点赞数</td><td>互动</td></tr>
+      <tr><td>status</td><td>CommentStatus</td><td>状态</td><td>显示/隐藏</td></tr>
+    </table>
+    <div class="fk">commentId -> Comment.id；replierId -> Admin.id（关系名 CommentReplyAdmin）。</div>
+
+    <!-- EvaluationImage -->
+    <h2>EvaluationImage — 评价图片</h2>
+    <p class="small">用途：商品评价的图片列表。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>evaluationId</td><td>String (FK)</td><td>评价 id</td><td>关联 ProductEvaluation</td></tr>
+      <tr><td>image</td><td>String</td><td>图片路径</td><td>展示</td></tr>
+    </table>
+    <div class="fk">evaluationId -> ProductEvaluation.id。</div>
+
+    <!-- ProductEvaluation -->
+    <h2>ProductEvaluation — 商品评价</h2>
+    <p class="small">用途：记录用户对商品及其配置的评分与评论。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>作者</td></tr>
+      <tr><td>productId</td><td>String (FK)</td><td>商品 id</td><td>目标商品</td></tr>
+      <tr><td>configId</td><td>String (FK)</td><td>配置 id</td><td>目标配置</td></tr>
+      <tr><td>star</td><td>Decimal(2,1)</td><td>星级评分</td><td>打分</td></tr>
+      <tr><td>likeNum</td><td>Int</td><td>点赞数</td><td>互动</td></tr>
+      <tr><td>content</td><td>String?</td><td>评论内容</td><td>文本</td></tr>
+      <tr><td>createdAt/updatedAt/status</td><td>Time/Enum</td><td>元数据</td><td>记录/状态</td></tr>
+    </table>
+    <div class="fk">userId -> User.id；productId -> Product.id；configId -> ProductConfig.id；关联 EvaluationImage、EvaluationReply。</div>
+
+    <!-- EvaluationReply -->
+    <h2>EvaluationReply — 商家回复评价</h2>
+    <p class="small">用途：管理员对商品评价的回复。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>evaluationId</td><td>String (FK)</td><td>评价 id</td><td>关联</td></tr>
+      <tr><td>content</td><td>String</td><td>回复内容</td><td>商家回复</td></tr>
+      <tr><td>replyTime</td><td>DateTime</td><td>回复时间</td><td>记录</td></tr>
+      <tr><td>replierId</td><td>String (FK)</td><td>回复者 id（管理员）</td><td>管理员</td></tr>
+      <tr><td>likeNum/status</td><td>Int/Enum</td><td>互动/状态</td><td>控制</td></tr>
+    </table>
+    <div class="fk">evaluationId -> ProductEvaluation.id；replierId -> Admin.id（关系名 EvaluationReplyAdmin）。</div>
+
+    <!-- ComplaintImage -->
+    <h2>ComplaintImage — 售后投诉图片</h2>
+    <p class="small">用途：投诉记录的图片证据。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>complaintId</td><td>String (FK)</td><td>投诉 id</td><td>关联</td></tr>
+      <tr><td>image</td><td>String</td><td>图片路径</td><td>展示/证据</td></tr>
+    </table>
+    <div class="fk">complaintId -> AfterSaleComplaint.id。</div>
+
+    <!-- AfterSaleComplaint -->
+    <h2>AfterSaleComplaint — 售后投诉</h2>
+    <p class="small">用途：用户对售后服务的投诉记录与处理信息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>投诉人</td></tr>
+      <tr><td>afterSaleId</td><td>String (FK)</td><td>售后 id</td><td>关联售后</td></tr>
+      <tr><td>content</td><td>String</td><td>投诉内容</td><td>主体</td></tr>
+      <tr><td>createdAt/updatedAt</td><td>DateTime</td><td>时间</td><td>记录</td></tr>
+      <tr><td>isHandled/handlerId/handleTime/handleResult</td><td>Bool/String/DateTime/String?</td><td>处理情况</td><td>流程</td></tr>
+      <tr><td>status</td><td>ComplaintStatus</td><td>状态</td><td>显示/隐藏</td></tr>
+    </table>
+    <div class="fk">userId -> User.id；afterSaleId -> AfterSale.id；关联 ComplaintImage。</div>
+
+    <!-- Region -->
+    <h2>Region — 行政区划字典</h2>
+    <p class="small">用途：存储省/市/区/街道的行政区划，供地址关联使用。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>code</td><td>String (PK)</td><td>区划编码</td><td>唯一标识</td></tr>
+      <tr><td>name</td><td>String</td><td>名称</td><td>展示</td></tr>
+      <tr><td>parentCode</td><td>String?</td><td>上级编码</td><td>树形</td></tr>
+      <tr><td>level</td><td>Int</td><td>层级</td><td>1-4</td></tr>
+    </table>
+    <div class="fk">自引用 parentCode -> Region.code；反向关联 ReceiptAddress 的四个字段（province/city/area/street）。</div>
+
+    <!-- ReceiptAddress -->
+    <h2>ReceiptAddress — 收货地址</h2>
+    <p class="small">用途：用户收货地址，关联 Region 四级编码。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>地址记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>所属用户</td></tr>
+      <tr><td>provinceCode</td><td>String</td><td>省编码</td><td>关联 Region</td></tr>
+      <tr><td>cityCode</td><td>String</td><td>市编码</td><td>关联</td></tr>
+      <tr><td>areaCode</td><td>String</td><td>区编码</td><td>关联</td></tr>
+      <tr><td>streetCode</td><td>String</td><td>街道编码</td><td>关联</td></tr>
+      <tr><td>address/receiver/phone</td><td>String</td><td>详细地址/收货人/电话</td><td>配送</td></tr>
+      <tr><td>isDefault</td><td>Boolean</td><td>是否默认</td><td>优先使用</td></tr>
+      <tr><td>createdAt/updatedAt</td><td>DateTime</td><td>时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">province/city/area/street -> Region.code（关系名 ReceiptAddressProvince/City/Area/Street）；userId -> User.id；@@index([userId, isDefault])。</div>
+
+    <!-- Admin -->
+    <h2>Admin — 管理员表</h2>
+    <p class="small">用途：后台管理员账号及其与权限/消息/客服等的关系。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>管理员标识</td></tr>
+      <tr><td>account</td><td>String (unique)</td><td>账号</td><td>登录</td></tr>
+      <tr><td>password</td><td>String</td><td>密码</td><td>认证</td></tr>
+      <tr><td>name</td><td>String</td><td>姓名</td><td>展示</td></tr>
+      <tr><td>email</td><td>String?</td><td>邮箱</td><td>联系</td></tr>
+      <tr><td>avatar/nickname/status/createdAt/lastLoginTime/creatorId</td><td>多种</td><td>元数据</td><td>展示/审计</td></tr>
+    </table>
+    <div class="fk">Admin 与 AdminIdentity、AdminProductCategory、IdentityPermission、CommentReply、EvaluationReply、AdminSession、AdminLogin、ServiceSessionRoom、ServiceEvaluation、ServiceMetric、GlobalMessage、PersonalMessage、ServiceSessionList 等多表有关联（多为反向关联，部分有关系名）。</div>
+
+    <!-- AdminIdentity -->
+    <h2>AdminIdentity — 管理员-身份</h2>
+    <p class="small">用途：为管理员分配身份（角色）。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>被分配者</td></tr>
+      <tr><td>identityId</td><td>String (FK)</td><td>身份 id</td><td>角色</td></tr>
+      <tr><td>assignerId</td><td>String</td><td>分配者 id</td><td>谁分配</td></tr>
+      <tr><td>assignTime/status/expireTime</td><td>Time/Enum/Time?</td><td>分配信息</td><td>生效/失效</td></tr>
+    </table>
+    <div class="fk">adminId -> Admin.id（关系名 AdminIdentityAdmin）；assignerId -> Admin.id（AdminIdentityAssigner）；identityId -> Identity.id；@@unique([adminId, identityId])。</div>
+
+    <!-- AdminProductCategory -->
+    <h2>AdminProductCategory — 管理员-商品专区</h2>
+    <p class="small">用途：指定管理员负责的商品专区/品类。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>负责人</td></tr>
+      <tr><td>categoryId</td><td>String (FK)</td><td>专区 id</td><td>归属</td></tr>
+      <tr><td>creatorId/createdAt/status</td><td>String/DateTime/Enum</td><td>元数据</td><td>审计/状态</td></tr>
+    </table>
+    <div class="fk">@@unique([adminId, categoryId])；adminId -> Admin.id（AdminProductCategoryAdmin）；creatorId -> Admin.id（AdminProductCategoryCreator）；categoryId -> Category.id。</div>
+
+    <!-- Identity -->
+    <h2>Identity — 身份（角色）</h2>
+    <p class="small">用途：定义后台身份（角色），供权限分配使用。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>角色标识</td></tr>
+      <tr><td>name</td><td>String (unique)</td><td>名称</td><td>展示</td></tr>
+      <tr><td>code</td><td>String (unique)</td><td>编码</td><td>系统使用</td></tr>
+      <tr><td>description/isSystem/status/createdAt/creatorId</td><td>多种</td><td>元数据</td><td>说明/审计</td></tr>
+    </table>
+    <div class="fk">Identity 反向关联 AdminIdentity、IdentityPermission。</div>
+
+    <!-- IdentityPermission -->
+    <h2>IdentityPermission — 身份-权限</h2>
+    <p class="small">用途：为身份分配系统权限，并记录分配者。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>identityId</td><td>String (FK)</td><td>身份 id</td><td>归属</td></tr>
+      <tr><td>permissionId</td><td>String (FK)</td><td>权限 id</td><td>关联 Permission</td></tr>
+      <tr><td>assignerId</td><td>String</td><td>分配者 id</td>管理员</td></tr>
+      <tr><td>assignTime/status</td><td>Time/Enum</td><td>分配信息</td><td>生效控制</td></tr>
+    </table>
+    <div class="fk">@@unique([identityId, permissionId])；assignerId -> Admin.id（IdentityPermissionAssigner）；identityId -> Identity.id；permissionId -> Permission.id。</div>
+
+    <!-- Permission -->
+    <h2>Permission — 系统权限</h2>
+    <p class="small">用途：描述系统的菜单/接口/功能权限项，支持父子结构。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>权限标识</td></tr>
+      <tr><td>name/type/module</td><td>String</td><td>名称/类型/模块</td><td>展示/分组</td></tr>
+      <tr><td>parentId</td><td>String?</td><td>父权限 id</td><td>树形结构</td></tr>
+      <tr><td>status</td><td>PermissionStatus</td><td>状态</td><td>启用/禁用</td></tr>
+    </table>
+    <div class="fk">parentId -> Permission.id（自引用）；关联 IdentityPermission。</div>
+
+    <!-- GlobalMessage -->
+    <h2>GlobalMessage — 全局消息</h2>
+    <p class="small">用途：管理员发布的公告/全局消息（发送给所有用户或大范围）。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>消息标识</td></tr>
+      <tr><td>senderId</td><td>String (FK)</td><td>发送者管理员 id</td><td>来源</td></tr>
+      <tr><td>type</td><td>MessageType</td><td>类型</td><td>公告/提醒/活动/通知</td></tr>
+      <tr><td>title/content</td><td>String</td><td>标题/内容</td><td>显示</td></tr>
+      <tr><td>sendTime/startTime/expireTime</td><td>DateTime</td><td>时间</td><td>生效/过期</td></tr>
+      <tr><td>status</td><td>MessageStatus</td><td>状态</td><td>正常/撤回/下架</td></tr>
+    </table>
+    <div class="fk">senderId -> Admin.id；反向关联 UserNotification（globalMessage）。</div>
+
+    <!-- PersonalMessage -->
+    <h2>PersonalMessage — 个人消息</h2>
+    <p class="small">用途：管理员发送给单个/部分用户的定向消息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>标识</td></tr>
+      <tr><td>senderId</td><td>String (FK)</td><td>发送者管理员 id</td><td>来源</td></tr>
+      <tr><td>type/title/content</td><td>MessageType/String</td><td>消息内容</td><td>显示</td></tr>
+      <tr><td>sendTime/startTime/expireTime/status</td><td>DateTime/Enum</td><td>时间/状态</td><td>生效控制</td></tr>
+    </table>
+    <div class="fk">senderId -> Admin.id；反向关联 UserNotification（personalMessage）。</div>
+
+    <!-- UserNotification -->
+    <h2>UserNotification — 用户通知</h2>
+    <p class="small">用途：记录用户收到的个人或全局消息，及读取/删除状态。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>接收者</td></tr>
+      <tr><td>messageType</td><td>String</td><td>个人/全局</td><td>区分</td></tr>
+      <tr><td>personalMessageId</td><td>String?</td><td>个人消息 id</td><td>关联</td></tr>
+      <tr><td>globalMessageId</td><td>String?</td><td>全局消息 id</td><td>关联</td></tr>
+      <tr><td>notifyTime/isRead/readTime/isDeleted</td><td>DateTime/Bool</td><td>状态/时间</td><td>阅读/删除管理</td></tr>
+    </table>
+    <div class="fk">userId -> User.id；personalMessageId -> PersonalMessage.id；globalMessageId -> GlobalMessage.id；@@unique([userId, personalMessageId]) / @@unique([userId, globalMessageId])。</div>
+
+    <!-- ServiceNotification -->
+    <h2>ServiceNotification — 客服对话新消息通知</h2>
+    <p class="small">用途：用于提醒用户/管理员在客服会话中有新消息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>接收者</td></tr>
+      <tr><td>roomId</td><td>String (FK)</td><td>会话室 id</td><td>对应会话</td></tr>
+      <tr><td>messageId</td><td>String (FK)</td><td>消息 id</td><td>对应消息</td></tr>
+      <tr><td>objectType</td><td>NotificationObjectType</td><td>对象类型</td><td>用户/管理员</td></tr>
+      <tr><td>objectId</td><td>String</td><td>对象 id</td><td>具体对象</td></tr>
+      <tr><td>replyMessageId/isDeleted/deleteTime/notifyTime/status</td><td>多种</td><td>状态/时间</td><td>管理</td></tr>
+    </table>
+    <div class="fk">userId -> User.id（关系名 ServiceNotificationUser）；roomId -> ServiceSessionRoom.id；messageId -> ServiceMessage.id。</div>
+
+    <!-- ServiceSessionList -->
+    <h2>ServiceSessionList — 客服会话窗口列表</h2>
+    <p class="small">用途：记录用户/管理员在会话面板中显示的会话项及删除状态。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>所属用户</td></tr>
+      <tr><td>roomId</td><td>String (FK)</td><td>会话室 id</td><td>对应会话</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>客服</td></tr>
+      <tr><td>userDeleted/adminDeleted</td><td>Boolean</td><td>删除标记</td><td>隐藏控制</td></tr>
+      <tr><td>userDeleteTime/adminDeleteTime</td><td>DateTime?</td><td>删除时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">@@unique([userId, roomId])；userId -> User.id（ServiceSessionListUser）；adminId -> Admin.id（ServiceSessionListAdmin）；roomId -> ServiceSessionRoom.id。</div>
+
+    <!-- ServiceSessionRoom -->
+    <h2>ServiceSessionRoom — 客服会话室</h2>
+    <p class="small">用途：客服与用户之间的会话容器，包含未读数、消息列表与评价。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>会话标识</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>会话用户</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>客服</td></tr>
+      <tr><td>userUnread/adminUnread</td><td>Int</td><td>未读数</td><td>计数</td></tr>
+      <tr><td>createdAt/endTime/status</td><td>DateTime/Enum</td><td>时间/状态</td><td>会话生命周期</td></tr>
+    </table>
+    <div class="fk">userId -> User.id（ServiceSessionRoomUser）；adminId -> Admin.id（ServiceSessionRoomAdmin）；关联 ServiceMessage、ServiceNotification、ServiceSessionList、ServiceEvaluation。</div>
+
+    <!-- ServiceMessage -->
+    <h2>ServiceMessage — 会话消息</h2>
+    <p class="small">用途：记录客服会话中的消息内容、发送者、接收者、已读、撤回等状态。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>消息标识</td></tr>
+      <tr><td>roomId</td><td>String (FK)</td><td>会话室 id</td><td>所属会话</td></tr>
+      <tr><td>senderType/receiverType</td><td>MessageSenderType</td><td>发送/接收类型</td><td>用户/管理员</td></tr>
+      <tr><td>senderId/receiverId</td><td>String</td><td>发送/接收者 id</td><td>具体身份</td></tr>
+      <tr><td>isRead/readTime</td><td>Boolean/DateTime?</td><td>已读</td><td>状态</td></tr>
+      <tr><td>content</td><td>String</td><td>消息正文</td><td>展示</td></tr>
+      <tr><td>sendTime</td><td>DateTime</td><td>发送时间</td><td>记录</td></tr>
+      <tr><td>status</td><td>ServiceMessageStatus</td><td>消息状态</td><td>撤回/正常</td></tr>
+      <tr><td>withdrawTime/replyMessageId/replyLevel</td><td>Time/String/Int</td><td>撤回/回复引用/层级</td><td>扩展功能</td></tr>
+    </table>
+    <div class="fk">roomId -> ServiceSessionRoom.id（onDelete: Cascade）；关联 ServiceNotification。</div>
+
+    <!-- ServiceEvaluation -->
+    <h2>ServiceEvaluation — 客服评价</h2>
+    <p class="small">用途：用户对客服会话的星级评价与内容记录。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>userId</td><td>String (FK)</td><td>用户 id</td><td>评价者</td></tr>
+      <tr><td>roomId</td><td>String (FK)</td><td>会话室 id</td><td>对应会话</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>客服 id</td><td>被评价者</td></tr>
+      <tr><td>content</td><td>String?</td><td>评价内容</td><td>说明</td></tr>
+      <tr><td>star</td><td>Decimal(2,1)</td><td>星级</td><td>评分</td></tr>
+      <tr><td>createdAt/updatedAt/status/withdrawReason</td><td>Time/Enum/String?</td><td>元数据</td><td>记录/撤回说明</td></tr>
+    </table>
+    <div class="fk">userId -> User.id；roomId -> ServiceSessionRoom.id；adminId -> Admin.id。</div>
+
+    <!-- ServiceMetric -->
+    <h2>ServiceMetric — 客服指标</h2>
+    <p class="small">用途：统计客服的会话数、评价数、平均星级、好评率等指标。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>统计对象</td></tr>
+      <tr><td>sessionNum/evaluatedNum/goodNum</td><td>Int</td><td>计数</td><td>统计</td></tr>
+      <tr><td>avgStar/goodRate</td><td>Decimal</td><td>平均星级/好评率</td><td>质量指标</td></tr>
+      <tr><td>statTime</td><td>DateTime</td><td>统计时间</td><td>时间维度</td></tr>
+    </table>
+    <div class="fk">@@unique([adminId, statTime])；adminId -> Admin.id。</div>
+
+    <!-- AdminSession -->
+    <h2>AdminSession — 管理员 Session</h2>
+    <p class="small">用途：持久化管理员的 session 数据与过期时间。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>关联</td></tr>
+      <tr><td>sessionId</td><td>String (unique)</td><td>session 唯一标识</td><td>检索</td></tr>
+      <tr><td>data</td><td>Json</td><td>管理员信息（json）</td><td>存储会话数据</td></tr>
+      <tr><td>expireTime</td><td>DateTime</td><td>过期</td><td>失效控制</td></tr>
+      <tr><td>createdAt/updatedAt</td><td>DateTime</td><td>时间</td><td>记录</td></tr>
+    </table>
+    <div class="fk">adminId -> Admin.id；反向关联 AdminLogin（logins）。</div>
+
+    <!-- AdminLogin -->
+    <h2>AdminLogin — 管理员登录记录</h2>
+    <p class="small">用途：记录管理员登录设备、session 与时间信息。</p>
+    <table>
+      <tr><th>字段名</th><th>类型</th><th>说明</th><th>作用</th></tr>
+      <tr><td>id</td><td>String</td><td>主键</td><td>记录</td></tr>
+      <tr><td>adminId</td><td>String (FK)</td><td>管理员 id</td><td>关联 Admin</td></tr>
+      <tr><td>sessionId</td><td>String</td><td>session id</td><td>关联 AdminSession</td></tr>
+      <tr><td>deviceName/deviceType</td><td>String</td><td>设备信息</td><td>审计</td></tr>
+      <tr><td>loginTime/loginIp/logoutTime/sessionExpireTime</td><td>DateTime</td><td>时间/IP</td><td>记录/审计</td></tr>
+    </table>
+    <div class="fk">adminId -> Admin.id；session -> AdminSession（sessionId 对应 AdminSession.sessionId）。</div>
+
+    <p class="meta">文档完成：已覆盖 schema.prisma 中的全部模型及字段说明与外键/关联注释。如需将此页面导出为单页 PDF、或按表生成可下载 CSV/Excel，请告知导出格式与样式要求。</p>
+  </div>
+</body>
+</html>

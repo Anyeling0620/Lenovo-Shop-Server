@@ -4,11 +4,182 @@ generator client {
 
 datasource db {
   provider = "mysql"
-   url     = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
+// 基础枚举定义
+enum BrandStatus {
+  启用
+  禁用
+  下架
+}
 
+enum CategoryStatus {
+  启用
+  禁用
+}
 
+enum ProductStatus {
+  正常
+  下架
+  删除
+}
+
+enum TagStatus {
+  启用
+  禁用
+}
+
+enum RelationStatus {
+  生效
+  失效
+}
+
+enum ProductConfigStatus {
+  正常
+  下架
+}
+
+enum ShelfProductStatus {
+  在售
+  售罄
+  下架
+}
+
+enum SeckillRoundStatus {
+  启用
+  禁用
+  已结束
+}
+
+enum SeckillType {
+  立减
+  打折
+}
+
+enum SeckillProductConfigStatus {
+  正常
+  售罄
+}
+
+enum CartStatus {
+  有效
+  无效
+}
+
+enum CouponType {
+  满减
+  折扣
+}
+
+enum UserCouponStatus {
+  未使用
+  已使用
+  已过期
+}
+
+enum OrderStatus {
+  待支付
+  待发货
+  已发货
+  待收货
+  已收货
+  已取消
+}
+
+enum AfterSaleType {
+  退货
+  换货
+  维修
+}
+
+enum AfterSaleStatus {
+  申请中
+  已同意
+  已拒绝
+  已寄回
+  已寄出
+  已完成
+}
+
+enum CommentStatus {
+  撤回
+  正常
+  用户删除
+}
+
+enum EvaluationStatus {
+  撤回
+  正常
+  用户删除
+}
+
+enum ComplaintStatus {
+  撤回
+  正常
+  用户删除
+}
+
+enum AdminStatus {
+  启用
+  禁用
+}
+
+enum IdentityStatus {
+  启用
+  禁用
+}
+
+enum PermissionStatus {
+  启用
+  禁用
+}
+
+enum MessageType {
+  公告
+  提醒
+  活动
+  通知
+}
+
+enum MessageStatus {
+  正常
+  撤回
+  下架
+}
+
+enum NotificationObjectType {
+  用户
+  管理员
+}
+
+enum NotificationStatus {
+  已读
+  未读
+}
+
+enum SessionRoomStatus {
+  已结束
+  进行中
+}
+
+enum MessageSenderType {
+  用户
+  管理员
+}
+
+// 修复枚举重名问题：原 MessageStatus 改为 ServiceMessageStatus
+enum ServiceMessageStatus {
+  撤回
+  正常
+}
+
+enum ServiceEvaluationStatus {
+  撤回
+  正常
+}
+
+// 原有模型
 enum MemberType {
   普通会员
   超级会员
@@ -34,7 +205,23 @@ model User {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  logins      UserLogin[]
+  // 反向关联
+  logins        UserLogin[]
+  carts         Cart[]
+  userCoupons   UserCoupon[]
+  userVouchers  UserVoucher[]
+  orders        Order[]
+  comments      Comment[]
+  evaluations   ProductEvaluation[]
+  complaints    AfterSaleComplaint[]
+  addresses     ReceiptAddress[]
+  notifications UserNotification[]
+  serviceChats  ServiceSessionRoom[] @relation("ServiceSessionRoomUser")
+  serviceEvaluations ServiceEvaluation[]
+  // 新增：ServiceNotification 反向关联
+  serviceNotifications ServiceNotification[] @relation("ServiceNotificationUser")
+  // 新增：ServiceSessionList 反向关联
+  serviceSessionLists ServiceSessionList[] @relation("ServiceSessionListUser")
 }
 
 model UserLogin {
@@ -49,6 +236,1003 @@ model UserLogin {
   logoutAt     DateTime?
   ipAddress    String?
   userAgent    String?
-  
+
   @@unique([userId, deviceId])
+}
+
+// 品牌表
+model Brand {
+  id          String       @id @default(uuid())
+  name        String       @unique // 品牌名称
+  code        String       @unique // 品牌编码
+  description String?      // 品牌描述
+  logo        String?      // 品牌logo
+  status      BrandStatus  @default(启用) // 状态
+  createdAt   DateTime     @default(now()) // 添加时间
+  creatorId   String       // 添加者id（管理员id）
+  updatedAt   DateTime     @updatedAt // 更新时间
+  remark      String?      // 备注
+
+  products    Product[]    // 关联商品
+}
+
+// 商品品类表
+model Category {
+  id          String        @id @default(uuid())
+  name        String        // 品类名称
+  code        String        @unique // 品类编码
+  parentId    String?       @db.VarChar(36) // 父级品类id
+  status      CategoryStatus @default(启用) // 状态
+  createdAt   DateTime      @default(now()) // 添加时间
+  creatorId   String        // 添加者id（管理员id）
+
+  parent      Category?     @relation("CategoryParent", fields: [parentId], references: [id])
+  children    Category[]    @relation("CategoryParent")
+  products    Product[]     // 关联商品
+  shelfProducts ShelfProduct[] // 关联货架商品
+  adminCategoryRelations AdminProductCategory[] // 关联管理员-商品专区
+}
+
+// 商品基本信息表
+model Product {
+  id          String        @id @default(uuid())
+  brandId     String        @db.VarChar(36) // 商品品牌id
+  categoryId  String        @db.VarChar(36) // 商品品类id
+  name        String        // 商品名称
+  subTitle    String?       // 商品副标题
+  description String?       // 商品描述
+  mainImage   String?       // 商品主图
+  createdAt   DateTime      @default(now()) // 添加时间
+  creatorId   String        // 添加者id（管理员id）
+  updatedAt   DateTime      @updatedAt // 更新时间
+  status      ProductStatus @default(正常) // 状态
+
+  // 反向关联
+  brand       Brand         @relation(fields: [brandId], references: [id])
+  category    Category      @relation(fields: [categoryId], references: [id])
+  tags        ProductTagRelation[] // 关联标签
+  configs     ProductConfig[] // 关联配置
+  banners     ProductBanner[] // 关联宣传图
+  appearance  ProductAppearance[] // 关联外观图
+  shelfProducts ShelfProduct[] // 关联货架商品
+  seckillProducts SeckillProduct[] // 关联秒杀商品
+  cartItems   Cart[] // 关联购物车
+  couponRelations ProductCouponRelation[] // 关联优惠券
+  orders      OrderItem[] // 关联订单商品
+  evaluations ProductEvaluation[] // 关联评价
+  // 新增：ShelfProductItem 反向关联
+  shelfProductItems ShelfProductItem[] @relation("ShelfProductItemProduct")
+}
+
+// 商品标签表
+model Tag {
+  id          String        @id @default(uuid())
+  name        String        @unique // 标签名称
+  priority    Int           @default(0) // 展示优先级
+  status      TagStatus     @default(启用) // 状态
+  createdAt   DateTime      @default(now()) // 添加时间
+  creatorId   String        // 添加者id（管理员id）
+  remark      String?       // 备注
+
+  products    ProductTagRelation[] // 关联商品
+}
+
+// 商品-标签关联表
+model ProductTagRelation {
+  id          String        @id @default(uuid())
+  productId   String        @db.VarChar(36) // 商品id
+  tagId       String        @db.VarChar(36) // 标签id
+  relationTime DateTime     @default(now()) // 关联时间
+  status      RelationStatus @default(生效) // 状态
+
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag         Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, tagId])
+}
+
+// 商品配置表
+model ProductConfig {
+  id          String             @id @default(uuid())
+  productId   String             @db.VarChar(36) // 商品id
+  config1     String             // 配置1（颜色等）
+  config2     String             // 配置2（内存等）
+  config3     String?            // 配置3（尺寸等）
+  salePrice   Decimal            @db.Decimal(10, 2) // 售价
+  originalPrice Decimal          @db.Decimal(10, 2) // 原价
+  configImage String?            // 配置图片
+  createdAt   DateTime           @default(now()) // 创建时间
+  updatedAt   DateTime           @updatedAt // 更新时间
+  status      ProductConfigStatus @default(正常) // 状态
+
+  product     Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stocks      Stock[]            // 关联库存
+  shelfProductItems ShelfProductItem[] @relation("ShelfProductItemConfig") // 关联上架商品数量
+  seckillConfig SeckillProductConfig[] // 关联秒杀配置
+  cartItems   Cart[] // 关联购物车
+  orderItems  OrderItem[] // 关联订单商品
+  evaluations ProductEvaluation[] // 关联评价
+}
+
+// 商品介绍宣传图表
+model ProductBanner {
+  id          String        @id @default(uuid())
+  productId   String        @db.VarChar(36) // 商品id
+  sort        Int           @default(0) // 序号
+  image       String        // 宣传图
+  createdAt   DateTime      @default(now()) // 添加时间
+
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sort])
+}
+
+// 商品外观图表
+model ProductAppearance {
+  id          String        @id @default(uuid())
+  productId   String        @db.VarChar(36) // 商品id
+  image       String        // 外观图
+  createdAt   DateTime      @default(now()) // 添加时间
+
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// 货架商品表
+model ShelfProduct {
+  id          String             @id @default(uuid())
+  categoryId  String             @db.VarChar(36) // 货架专区id（品类表id）
+  productId   String             @db.VarChar(36) // 商品id
+  isCarousel  Boolean            @default(false) // 专栏轮播
+  carouselImage String?          // 专栏轮播海报
+  isSelfOperated Boolean         @default(true) // 自营
+  isCustomizable Boolean         @default(false) // 可定制
+  installment Int                @default(0) // 分期（0/6/12/24）
+  shelfTime   DateTime           @default(now()) // 上架时间
+  updatedAt   DateTime           @updatedAt // 更新时间
+  offShelfTime DateTime?        // 下架时间
+  status      ShelfProductStatus @default(在售) // 状态
+
+  category    Category           @relation(fields: [categoryId], references: [id])
+  product     Product            @relation(fields: [productId], references: [id])
+  items       ShelfProductItem[] // 关联上架商品数量
+  newProductPush NewProductPush[] // 关联新品推送
+  homePush    HomePush[] // 关联首页推送
+
+  @@unique([categoryId, productId])
+}
+
+// 库存表
+model Stock {
+  id          String        @id @default(uuid())
+  configId    String        @db.VarChar(36) // 商品配置id
+  stockNum    Int           @default(0) // 库存数量
+  freezeNum   Int           @default(0) // 冻结数量
+  warnNum     Int           @default(10) // 库存预警数量
+  updatedAt   DateTime      @default(now()) // 更新时间
+  lastInTime  DateTime?     // 最后入库时间
+  lastOutTime DateTime?     // 最后出库时间
+
+  config      ProductConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([configId])
+}
+
+// 上架商品数量表
+model ShelfProductItem {
+  id          String        @id @default(uuid())
+  shelfProductId String      @db.VarChar(36) // 货架商品id
+  productId   String        @db.VarChar(36) // 商品id
+  configId    String        @db.VarChar(36) // 商品配置id
+  shelfNum    Int           @default(0) // 上架数量
+  lockNum     Int           @default(0) // 锁定数量
+  updatedAt   DateTime      @default(now()) // 更新时间
+
+  shelfProduct ShelfProduct @relation(fields: [shelfProductId], references: [id], onDelete: Cascade)
+  // 新增：添加关系名称，对应 Product 中的反向关联
+  product     Product       @relation("ShelfProductItemProduct", fields: [productId], references: [id])
+  // 新增：添加关系名称，对应 ProductConfig 中的反向关联
+  config      ProductConfig @relation("ShelfProductItemConfig", fields: [configId], references: [id])
+
+  @@unique([shelfProductId, configId])
+}
+
+// 新品推送表
+model NewProductPush {
+  id          String             @id @default(uuid())
+  shelfProductId String          @db.VarChar(36) // 货架商品id
+  isCarousel  Boolean            @default(false) // 新品轮播
+  carouselImage String?          // 新品专区轮播海报
+  startTime   DateTime           // 生效时间
+  endTime     DateTime           // 结束时间
+  status      ShelfProductStatus @default(在售) // 状态（展示中，已下架）
+
+  shelfProduct ShelfProduct      @relation(fields: [shelfProductId], references: [id], onDelete: Cascade)
+
+  @@unique([shelfProductId])
+}
+
+// 首页推送表
+model HomePush {
+  id          String             @id @default(uuid())
+  shelfProductId String          @db.VarChar(36) // 货架商品id
+  isCarousel  Boolean            @default(false) // 首页轮播
+  carouselImage String?          // 首页区轮播海报
+  startTime   DateTime           // 生效时间
+  endTime     DateTime           // 结束时间
+  status      ShelfProductStatus @default(在售) // 状态（展示中，已下架）
+
+  shelfProduct ShelfProduct      @relation(fields: [shelfProductId], references: [id], onDelete: Cascade)
+
+  @@unique([shelfProductId])
+}
+
+// 秒杀轮次表
+model SeckillRound {
+  id          String           @id @default(uuid())
+  title       String           // 秒杀轮次标题
+  startTime   DateTime         // 秒杀开始时间
+  endTime     DateTime         // 秒杀结束时间
+  status      SeckillRoundStatus @default(启用) // 状态
+  createdAt   DateTime         @default(now()) // 添加时间
+  creatorId   String           // 添加者id（管理员id）
+  remark      String?          // 备注
+
+  products    SeckillProduct[] // 关联秒杀商品
+}
+
+// 秒杀商品表
+model SeckillProduct {
+  id          String        @id @default(uuid())
+  roundId     String        @db.VarChar(36) // 轮次id
+  productId   String        @db.VarChar(36) // 商品id
+  type        SeckillType   // 优惠方式
+  reduceAmount Decimal      @db.Decimal(10, 2) @default(0) // 优惠金额
+  discount    Decimal       @db.Decimal(3, 2) @default(1.00) // 优惠折扣（1为原价）
+
+  round       SeckillRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  configs     SeckillProductConfig[] // 关联秒杀配置
+
+  @@unique([roundId, productId])
+}
+
+// 秒杀商品配置表
+model SeckillProductConfig {
+  id          String                   @id @default(uuid())
+  seckillProductId String              @db.VarChar(36) // 秒杀商品id
+  configId    String                   @db.VarChar(36) // 商品配置id
+  shelfNum    Int                      @default(0) // 上架数量
+  remainNum   Int                      @default(0) // 剩余数量
+  lockNum     Int                      @default(0) // 锁定数量
+  seckillPrice Decimal                 @db.Decimal(10, 2) // 直接秒杀价
+  createdAt   DateTime                 @default(now()) // 添加时间
+  updatedAt   DateTime                 @updatedAt // 更新时间
+  status      SeckillProductConfigStatus @default(正常) // 状态
+
+  seckillProduct SeckillProduct       @relation(fields: [seckillProductId], references: [id], onDelete: Cascade)
+  config        ProductConfig         @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([seckillProductId, configId])
+}
+
+// 购物车表
+model Cart {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  productId   String        @db.VarChar(36) // 商品id
+  configId    String        @db.VarChar(36) // 配置id
+  quantity    Int           @default(1) // 数量
+  status      CartStatus    @default(有效) // 状态
+  price       Decimal       @db.Decimal(10, 2) // 商品价格
+  createdAt   DateTime      @default(now()) // 添加时间
+  updatedAt   DateTime      @updatedAt // 更新时间
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product       @relation(fields: [productId], references: [id])
+  config      ProductConfig @relation(fields: [configId], references: [id])
+
+  @@unique([userId, productId, configId])
+}
+
+// 领券中心表
+model CouponCenter {
+  id          String        @id @default(uuid())
+  couponId    String        @db.VarChar(36) // 优惠券id
+  startTime   DateTime      // 可领取时间
+  totalNum    Int           @default(0) // 可领取数量
+  endTime     DateTime      // 截止时间
+  limitNum    Int           @default(1) // 领取限制（每人限领）
+  creatorId   String        // 添加者id（管理员id）
+  createdAt   DateTime      @default(now()) // 添加时间
+
+  coupon      Coupon        @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId])
+}
+
+// 优惠券表
+model Coupon {
+  id          String        @id @default(uuid())
+  name        String        // 优惠券名称
+  type        CouponType    // 优惠券类型
+  amount      Decimal       @db.Decimal(10, 2) @default(0) // 优惠金额
+  discount    Decimal       @db.Decimal(3, 2) @default(1.00)// 优惠折扣率
+  threshold   Decimal       @db.Decimal(10, 2) @default(0) // 门槛金额
+  condition   String?       // 使用条件描述
+  scope       String?       // 使用范围描述
+  startTime   DateTime      // 开始时间
+  expireTime  DateTime      // 过期时间
+  isStackable Boolean       @default(false) // 可叠加
+  creatorId   String        // 添加者id（管理员id）
+  createdAt   DateTime      @default(now()) // 添加时间
+  remark      String?       // 备注
+
+  center      CouponCenter? // 关联领券中心
+  productRelations ProductCouponRelation[] // 关联商品
+  userCoupons UserCoupon[] // 关联用户优惠券
+}
+
+// 代金券表
+model Voucher {
+  id          String        @id @default(uuid())
+  title       String        // 标题
+  description String?       // 描述
+  originalAmount Decimal    @db.Decimal(10, 2) // 原始金额
+  startTime   DateTime      // 开始时间
+  endTime     DateTime      // 结束时间
+  creatorId   String        // 创建者id（管理员id）
+  remark      String?       // 备注
+
+  userVouchers UserVoucher[] // 关联用户代金券
+  orderRelations OrderVoucherRelation[] // 关联订单
+}
+
+// 商品-优惠券可用关联表
+model ProductCouponRelation {
+  id          String        @id @default(uuid())
+  productId   String        @db.VarChar(36) // 商品id
+  couponId    String        @db.VarChar(36) // 优惠券id
+  status      RelationStatus @default(生效) // 状态
+  relationTime DateTime     @default(now()) // 关联时间
+  operatorId  String        // 操作人id（管理员id）
+  remark      String?       // 备注
+
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  coupon      Coupon        @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, couponId])
+}
+
+// 用户-优惠券持有关联表
+model UserCoupon {
+  id          String             @id @default(uuid())
+  userId      String             @db.VarChar(36) // 用户id
+  couponId    String             @db.VarChar(36) // 优惠券id
+  status      UserCouponStatus   @default(未使用) // 优惠券状态
+  receiveTime DateTime           @default(now()) // 领取时间
+  useTime     DateTime?          // 使用时间
+  orderId     String?            @db.VarChar(36) // 关联订单id
+  actualAmount Decimal           @db.Decimal(10, 2) @default(0) // 实际优惠金额
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon      Coupon             @relation(fields: [couponId], references: [id])
+  order       Order?             @relation(fields: [orderId], references: [id])
+
+  @@unique([userId, couponId, orderId])
+}
+
+// 用户-代金券持有关联表
+model UserVoucher {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  voucherId   String        @db.VarChar(36) // 代金券id
+  status      Boolean       @default(true) // 代金券状态
+  getTime     DateTime      @default(now()) // 获取时间
+  useUpTime   DateTime?     // 用尽时间
+  usedAmount  Decimal       @db.Decimal(10, 2) @default(0) // 使用金额
+  remainAmount Decimal      @db.Decimal(10, 2) // 剩余金额
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucher     Voucher       @relation(fields: [voucherId], references: [id])
+
+  @@unique([userId, voucherId])
+}
+
+// 订单-代金券使用关联表
+model OrderVoucherRelation {
+  id          String        @id @default(uuid())
+  orderId     String        @db.VarChar(36) // 订单id
+  voucherId   String        @db.VarChar(36) // 代金券id
+  usedAmount  Decimal       @db.Decimal(10, 2) // 使用金额
+  useTime     DateTime      @default(now()) // 使用时间
+
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  voucher     Voucher       @relation(fields: [voucherId], references: [id])
+
+  @@unique([orderId, voucherId])
+}
+
+// 订单-商品表
+model OrderItem {
+  id          String        @id @default(uuid())
+  orderId     String        @db.VarChar(36) // 订单id
+  productId   String        @db.VarChar(36) // 商品id
+  configId    String        @db.VarChar(36) // 商品配置id
+  quantity    Int           // 商品数量
+  priceSnapshot Decimal     @db.Decimal(10, 2) // 商品价格快照
+  discountSnapshot Decimal  @db.Decimal(10, 2) // 商品优惠快照
+  payAmountSnapshot Decimal @db.Decimal(10, 2) // 商品实付金额快照
+  nameSnapshot String       // 商品名称快照
+  imageSnapshot String?     // 商品主图快照
+  config1Snapshot String    // 配置1快照
+  config2Snapshot String    // 配置2快照
+  config3Snapshot String?   // 配置3快照
+
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product       @relation(fields: [productId], references: [id])
+  config      ProductConfig @relation(fields: [configId], references: [id])
+  afterSales  AfterSale[]   // 关联售后
+  comments    Comment[]     // 关联吐槽
+}
+
+// 订单表
+model Order {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  orderNo     String        @unique // 订单号（20位数字）
+  status      OrderStatus   @default(待支付) // 订单状态
+  payType     String?       // 支付方式
+  payAmount   Decimal       @db.Decimal(10, 2) // 支付金额
+  actualPayAmount Decimal   @db.Decimal(10, 2) // 实际支付金额
+  payTime     DateTime?     // 支付时间
+  provinceCode String       // 收货快照-省编码
+  cityCode    String        // 收货快照-市编码
+  areaCode    String        // 收货快照-区县编码
+  streetCode  String        // 收货快照-街道编码
+  address     String        // 收货快照-详细地址
+  remark      String?       // 订单备注
+  receiver    String        // 收货快照-收货人
+  phone       String        // 收货快照-手机号
+  logisticsNo String?       // 物流单号
+  createdAt   DateTime      @default(now()) // 订单创建时间
+  payLimitTime DateTime     // 支付限制时间
+  cancelTime  DateTime?     // 订单取消时间
+  shipTime    DateTime?     // 订单发货时间
+  receiveTime DateTime?     // 订单收货时间
+  completeTime DateTime?    // 订单完成时间
+  isVisible   Boolean       @default(true) // 用户可见状态
+
+  user        User          @relation(fields: [userId], references: [id])
+  items       OrderItem[]   // 关联订单商品
+  afterSales  AfterSale[]   // 关联售后
+  userCoupons UserCoupon[]  // 关联用户优惠券
+  vouchers    OrderVoucherRelation[] // 关联代金券
+  // 新增：Comment 反向关联
+  comments    Comment[] @relation("CommentOrder")
+}
+
+// 售后-图片表
+model AfterSaleImage {
+  id          String        @id @default(uuid())
+  afterSaleId String        @db.VarChar(36) // 售后id
+  image       String        // 图片
+
+  afterSale   AfterSale     @relation(fields: [afterSaleId], references: [id], onDelete: Cascade)
+}
+
+// 售后表
+model AfterSale {
+  id          String        @id @default(uuid())
+  orderId     String        @db.VarChar(36) // 订单id
+  afterSaleNo String        @unique // 售后单号
+  orderItemId String        @db.VarChar(36) // 订单商品id
+  type        AfterSaleType // 售后类型
+  status      AfterSaleStatus @default(申请中) // 售后状态
+  reason      String        // 售后原因
+  remark      String?       // 售后备注
+  applyTime   DateTime      @default(now()) // 申请时间
+  agreeTime   DateTime?     // 同意时间
+  rejectTime  DateTime?     // 拒绝时间
+  rejectReason String?      // 同意/拒绝原因
+  userLogisticsNo String?   // 用户寄回物流单号
+  receiverProvince String    // 收货快照-省编码
+  receiverCity String       // 收货快照-市编码
+  receiverArea String       // 收货快照-区县编码
+  receiverStreet String     // 收货快照-街道编码
+  receiverAddress String    // 收货快照-详细地址
+  receiverRemark String?    // 订单备注
+  receiverName String       // 收货快照-收货人
+  receiverPhone String      // 收货快照-手机号
+  merchantLogisticsNo String? // 商家寄出物流单号
+  shipProvince String?      // 发货快照-省编码
+  shipCity String?          // 发货快照-市编码
+  shipArea String?          // 发货快照-区县编码
+  shipStreet String?        // 发货快照-街道编码
+  shipAddress String?       // 发货快照-详细地址
+  shipRemark String?        // 订单备注
+  shipName String?          // 发货快照-收货人
+  shipPhone String?         // 发货快照-手机号
+  sendBackTime DateTime?    // 寄回时间
+  sendOutTime DateTime?     // 寄出时间
+  completeTime DateTime?    // 完成时间
+  handlerId   String?       // 处理者id
+
+  order       Order         @relation(fields: [orderId], references: [id])
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
+  images      AfterSaleImage[] // 关联图片
+  complaints  AfterSaleComplaint[] // 关联投诉
+}
+
+// 吐槽-图片表
+model CommentImage {
+  id          String        @id @default(uuid())
+  commentId   String        @db.VarChar(36) // 吐槽id
+  image       String        // 图片
+
+  comment     Comment       @relation(fields: [commentId], references: [id], onDelete: Cascade)
+}
+
+// 吐槽表
+model Comment {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  orderId     String        @db.VarChar(36) // 订单id
+  orderItemId String        @db.VarChar(36) // 订单商品id
+  content     String        // 吐槽内容
+  likeNum     Int           @default(0) // 点赞数
+  createdAt   DateTime      @default(now()) // 添加时间
+  updatedAt   DateTime      @updatedAt // 更新时间
+  status      CommentStatus @default(正常) // 状态
+
+  user        User          @relation(fields: [userId], references: [id])
+  // 新增：添加关系名称，对应 Order 中的反向关联
+  order       Order         @relation("CommentOrder", fields: [orderId], references: [id])
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
+  images      CommentImage[] // 关联图片
+  replies     CommentReply[] // 关联商家回复
+}
+
+// 吐槽-商家回复表
+model CommentReply {
+  id          String        @id @default(uuid())
+  commentId   String        @db.VarChar(36) // 吐槽id
+  content     String        // 回复内容
+  replyTime   DateTime      @default(now()) // 回复时间
+  replierId   String        // 回复者id（管理员id）
+  likeNum     Int           @default(0) // 点赞数
+  status      CommentStatus @default(正常) // 状态
+
+  comment     Comment       @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  admin       Admin         @relation("CommentReplyAdmin", fields: [replierId], references: [id])
+}
+
+// 评价-图片表
+model EvaluationImage {
+  id          String        @id @default(uuid())
+  evaluationId String       @db.VarChar(36) // 评价id
+  image       String        // 图片
+
+  evaluation  ProductEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+}
+
+// 商品评价表
+model ProductEvaluation {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  productId   String        @db.VarChar(36) // 商品id
+  configId    String        @db.VarChar(36) // 商品配置id
+  star        Decimal       @db.Decimal(2, 1) // 评价星星数（1~5，0.5为单位）
+  likeNum     Int           @default(0) // 点赞数
+  content     String?       // 评价内容
+  createdAt   DateTime      @default(now()) // 添加时间
+  updatedAt   DateTime      @updatedAt // 更新时间
+  status      EvaluationStatus @default(正常) // 状态
+
+  user        User          @relation(fields: [userId], references: [id])
+  product     Product       @relation(fields: [productId], references: [id])
+  config      ProductConfig @relation(fields: [configId], references: [id])
+  images      EvaluationImage[] // 关联图片
+  replies     EvaluationReply[] // 关联商家回复
+}
+
+// 评价-商家回复表
+model EvaluationReply {
+  id          String        @id @default(uuid())
+  evaluationId String       @db.VarChar(36) // 评价id
+  content     String        // 回复内容
+  replyTime   DateTime      @default(now()) // 回复时间
+  replierId   String        // 回复者id（管理员id）
+  likeNum     Int           @default(0) // 点赞数
+  status      EvaluationStatus @default(正常) // 状态
+
+  evaluation  ProductEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  admin       Admin         @relation("EvaluationReplyAdmin", fields: [replierId], references: [id])
+}
+
+// 投诉-图片表
+model ComplaintImage {
+  id          String        @id @default(uuid())
+  complaintId String        @db.VarChar(36) // 投诉id
+  image       String        // 图片
+
+  complaint   AfterSaleComplaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+}
+
+// 售后投诉表
+model AfterSaleComplaint {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  afterSaleId String        @db.VarChar(36) // 售后id
+  content     String        // 投诉内容
+  createdAt   DateTime      @default(now()) // 添加时间
+  updatedAt   DateTime      @updatedAt // 更新时间
+  isHandled   Boolean       @default(false) // 处理
+  handlerId   String?       // 处理者id
+  handleTime  DateTime?     // 处理时间
+  handleResult String?      // 处理结果
+  status      ComplaintStatus @default(正常) // 状态
+
+  user        User          @relation(fields: [userId], references: [id])
+  afterSale   AfterSale     @relation(fields: [afterSaleId], references: [id])
+  images      ComplaintImage[] // 关联图片
+}
+
+// 行政区划字典表（修复关联关系，添加反向关联）
+model Region {
+  code        String        @id // 行政区划编码
+  name        String        // 行政区划名称
+  parentCode  String?       // 上级行政区划编码
+  level       Int           // 行政区划层级（1:省，2:市，3:区县，4:街道）
+
+  parent      Region?       @relation("RegionParent", fields: [parentCode], references: [code])
+  children    Region[]      @relation("RegionParent")
+  // 为收货地址的四个关联字段添加反向关联
+  receiptAddressProvinces ReceiptAddress[] @relation("ReceiptAddressProvince")
+  receiptAddressCities ReceiptAddress[] @relation("ReceiptAddressCity")
+  receiptAddressAreas ReceiptAddress[] @relation("ReceiptAddressArea")
+  receiptAddressStreets ReceiptAddress[] @relation("ReceiptAddressStreet")
+}
+
+// 收货信息表（修复关联歧义，添加唯一关系名称）
+model ReceiptAddress {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  provinceCode String       // 省份编码
+  cityCode    String        // 城市编码
+  areaCode    String        // 区县编码
+  streetCode  String        // 街道编码
+  address     String        // 详细地址
+  receiver    String        // 收货人
+  phone       String        // 手机号
+  isDefault   Boolean       @default(false) // 是否默认
+  createdAt   DateTime      @default(now()) // 创建时间
+  updatedAt   DateTime      @updatedAt // 更新时间
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // 为每个Region关联添加唯一的关系名称，与Region中的反向关联对应
+  province    Region        @relation("ReceiptAddressProvince", fields: [provinceCode], references: [code])
+  city        Region        @relation("ReceiptAddressCity", fields: [cityCode], references: [code])
+  area        Region        @relation("ReceiptAddressArea", fields: [areaCode], references: [code])
+  street      Region        @relation("ReceiptAddressStreet", fields: [streetCode], references: [code])
+
+  @@index([userId, isDefault])
+}
+
+// 管理员表（清理冗余字段，保留命名反向关联）
+model Admin {
+  id          String        @id @default(uuid())
+  account     String        @unique // 账号
+  password    String        // 密码
+  name        String        // 姓名
+  email       String?       @unique // 邮箱
+  avatar      String?       // 头像
+  nickname    String?       // 工作昵称
+  status      AdminStatus   @default(启用) // 状态
+  createdAt   DateTime      @default(now()) // 创建时间
+  lastLoginTime DateTime?   // 最后登陆时间
+  creatorId   String?       // 创建者id（管理员id）
+
+  // 命名反向关联（与 AdminIdentity 对应）
+  adminIdentityAdmins AdminIdentity[] @relation("AdminIdentityAdmin")
+  adminIdentityAssigners AdminIdentity[] @relation("AdminIdentityAssigner")
+  // 命名反向关联（与 AdminProductCategory 对应）
+  adminProductCategoryAdmins AdminProductCategory[] @relation("AdminProductCategoryAdmin")
+  adminProductCategoryCreators AdminProductCategory[] @relation("AdminProductCategoryCreator")
+  // 命名反向关联（与 IdentityPermission 对应）
+  identityPermissionAssigners IdentityPermission[] @relation("IdentityPermissionAssigner")
+  // 命名反向关联（与 CommentReply 对应）
+  commentReplyRepliers CommentReply[] @relation("CommentReplyAdmin")
+  // 命名反向关联（与 EvaluationReply 对应）
+  evaluationReplyRepliers EvaluationReply[] @relation("EvaluationReplyAdmin")
+  // 其他反向关联
+  sessions         AdminSession[]
+  logins           AdminLogin[]
+  serviceSessions  ServiceSessionRoom[] @relation("ServiceSessionRoomAdmin")
+  serviceEvaluations ServiceEvaluation[]
+  serviceMetrics   ServiceMetric[]
+  messages         GlobalMessage[]
+  personalMessages PersonalMessage[]
+  // 新增：ServiceSessionList 反向关联
+  serviceSessionLists ServiceSessionList[] @relation("ServiceSessionListAdmin")
+}
+
+// 管理员-身份关联表（修复关联Admin的歧义，添加唯一关系名称）
+model AdminIdentity {
+  id          String        @id @default(uuid())
+  adminId     String        @db.VarChar(36) // 管理员id
+  identityId  String        @db.VarChar(36) // 身份id
+  assignerId  String        // 分配者id（管理员id）
+  assignTime  DateTime      @default(now()) // 分配时间
+  status      IdentityStatus @default(启用) // 状态
+  expireTime  DateTime?     // 失效时间
+
+  // 关联Admin：管理员（添加唯一关系名称）
+  admin       Admin         @relation("AdminIdentityAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  // 关联Admin：分配者（添加唯一关系名称）
+  assigner    Admin         @relation("AdminIdentityAssigner", fields: [assignerId], references: [id])
+  identity    Identity      @relation(fields: [identityId], references: [id])
+
+  @@unique([adminId, identityId])
+}
+
+// 管理员-商品专区关联表（修复关联Admin的歧义，添加唯一关系名称）
+model AdminProductCategory {
+  id          String        @id @default(uuid())
+  adminId     String        @db.VarChar(36) // 管理员id
+  categoryId  String        @db.VarChar(36) // 专区id（品类表id）
+  creatorId   String        // 创建者id（管理员id）
+  createdAt   DateTime      @default(now()) // 创建时间
+  status      IdentityStatus @default(启用) // 状态
+
+  // 关联Admin：管理员（添加唯一关系名称）
+  admin       Admin         @relation("AdminProductCategoryAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  // 关联Admin：创建者（添加唯一关系名称）
+  creator     Admin         @relation("AdminProductCategoryCreator", fields: [creatorId], references: [id])
+  category    Category      @relation(fields: [categoryId], references: [id])
+
+  @@unique([adminId, categoryId])
+}
+
+// 身份表
+model Identity {
+  id          String        @id @default(uuid())
+  name        String        @unique // 身份名称
+  code        String        @unique // 身份编码
+  description String?       // 身份描述
+  isSystem    Boolean       @default(false) // 系统预设
+  status      IdentityStatus @default(启用) // 状态
+  createdAt   DateTime      @default(now()) // 创建时间
+  creatorId   String?       // 创建者id（管理员id）
+
+  admins      AdminIdentity[] // 关联管理员
+  permissions IdentityPermission[] // 关联权限
+}
+
+// 身份-权限关联表（修复关联Admin的歧义，添加唯一关系名称）
+model IdentityPermission {
+  id          String        @id @default(uuid())
+  identityId  String        @db.VarChar(36) // 身份id
+  permissionId String       @db.VarChar(36) // 权限id
+  assignerId  String        // 分配者id（管理员id）
+  assignTime  DateTime      @default(now()) // 分配时间
+  status      IdentityStatus @default(启用) // 状态
+
+  identity    Identity      @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  permission  Permission    @relation(fields: [permissionId], references: [id])
+  // 关联Admin：分配者（添加唯一关系名称）
+  assigner    Admin         @relation("IdentityPermissionAssigner", fields: [assignerId], references: [id])
+
+  @@unique([identityId, permissionId])
+}
+
+// 权限表 
+model Permission {
+  id          String        @id @default(uuid())
+  name        String        // 权限名称
+  type        String        // 权限类型
+  parentId    String?       @db.VarChar(36) // 父级权限id
+  module      String        // 模块名称
+  status      PermissionStatus @default(启用) // 状态
+
+  parent      Permission?   @relation("PermissionParent", fields: [parentId], references: [id])
+  children    Permission[]  @relation("PermissionParent")
+  identities  IdentityPermission[] // 关联身份
+}
+
+// 系统全局消息表
+model GlobalMessage {
+  id          String        @id @default(uuid())
+  senderId    String        @db.VarChar(36) // 发送者id（管理员）
+  type        MessageType   // 通知类型
+  title       String        // 标题
+  content     String        // 内容
+  sendTime    DateTime      @default(now()) // 发送时间
+  startTime   DateTime      // 生效时间
+  expireTime  DateTime      // 过期时间
+  status      MessageStatus @default(正常) // 状态
+
+  sender      Admin         @relation(fields: [senderId], references: [id])
+  notifications UserNotification[] // 关联用户通知
+}
+
+// 个人通知消息表
+model PersonalMessage {
+  id          String        @id @default(uuid())
+  senderId    String        @db.VarChar(36) // 发送者id（管理员）
+  type        MessageType   // 通知类型
+  title       String        // 标题
+  content     String        // 内容
+  sendTime    DateTime      @default(now()) // 发送时间
+  startTime   DateTime      // 生效时间
+  expireTime  DateTime      // 过期时间
+  status      MessageStatus @default(正常) // 状态
+
+  sender      Admin         @relation(fields: [senderId], references: [id])
+  notifications UserNotification[] // 关联用户通知
+}
+
+// 用户-系统通知表
+model UserNotification {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  messageType String        // 消息类型（个人/全局）
+  personalMessageId String? @db.VarChar(36) // 个人通知id
+  globalMessageId String?   @db.VarChar(36) // 全局通知id
+  notifyTime  DateTime      @default(now()) // 通知时间
+  isRead      Boolean       @default(false) // 已读
+  readTime    DateTime?     // 已读时间
+  isDeleted   Boolean       @default(false) // 是否删除
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personalMessage PersonalMessage? @relation(fields: [personalMessageId], references: [id])
+  globalMessage GlobalMessage?     @relation(fields: [globalMessageId], references: [id])
+
+  @@unique([userId, personalMessageId])
+  @@unique([userId, globalMessageId])
+}
+
+// 用户-客服对话新消息通知表
+model ServiceNotification {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  roomId      String        @db.VarChar(36) // 会话室id
+  messageId   String        @db.VarChar(36) // 关联消息id
+  objectType  NotificationObjectType // 通知对象类型
+  objectId    String        // 对象id（用户id/管理员id）
+  replyMessageId String?    // 回复源消息id
+  isDeleted   Boolean       @default(false) // 删除
+  deleteTime  DateTime?     // 删除时间
+  notifyTime  DateTime      @default(now()) // 通知时间
+  status      NotificationStatus @default(未读) // 状态
+
+  // 新增：添加关系名称，对应 User 中的反向关联
+  user        User          @relation("ServiceNotificationUser", fields: [userId], references: [id])
+  room        ServiceSessionRoom @relation(fields: [roomId], references: [id])
+  message     ServiceMessage @relation(fields: [messageId], references: [id])
+}
+
+// 用户-客服对话窗口列表
+model ServiceSessionList {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  roomId      String        @db.VarChar(36) // 会话室id
+  adminId     String        @db.VarChar(36) // 管理员id
+  userDeleted Boolean       @default(false) // 用户删除
+  userDeleteTime DateTime?  // 用户删除时间
+  adminDeleted Boolean      @default(false) // 管理员删除
+  adminDeleteTime DateTime? // 管理员删除时间
+
+  // 新增：添加关系名称，对应 User 中的反向关联
+  user        User          @relation("ServiceSessionListUser", fields: [userId], references: [id])
+  room        ServiceSessionRoom @relation(fields: [roomId], references: [id])
+  // 新增：添加关系名称，对应 Admin 中的反向关联
+  admin       Admin         @relation("ServiceSessionListAdmin", fields: [adminId], references: [id])
+
+  @@unique([userId, roomId])
+}
+
+// 客服-用户会话室
+model ServiceSessionRoom {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  adminId     String        @db.VarChar(36) // 管理员id（客服）
+  userUnread  Int           @default(0) // 用户未读消息数量
+  adminUnread Int           @default(0) // 管理员未读消息数量
+  createdAt   DateTime      @default(now()) // 会话创建时间
+  endTime     DateTime?     // 结束时间
+  status      SessionRoomStatus @default(进行中) // 状态
+
+  // 新增：添加关系名称，对应 User 中的反向关联
+  user        User          @relation("ServiceSessionRoomUser", fields: [userId], references: [id])
+  // 新增：添加关系名称，对应 Admin 中的反向关联
+  admin       Admin         @relation("ServiceSessionRoomAdmin", fields: [adminId], references: [id])
+  messages    ServiceMessage[] // 关联消息
+  notifications ServiceNotification[] // 关联通知
+  lists       ServiceSessionList[] // 关联窗口列表
+  evaluations ServiceEvaluation[] // 关联评价
+}
+
+// 客服-用户会话室-消息表（修复枚举重名，使用 ServiceMessageStatus）
+model ServiceMessage {
+  id          String        @id @default(uuid())
+  roomId      String        @db.VarChar(36) // 会话室id
+  senderType  MessageSenderType // 发送者身份
+  senderId    String        // 发送者id
+  receiverType MessageSenderType // 接收者身份
+  receiverId  String        // 接收者id
+  isRead      Boolean       @default(false) // 接收者已读
+  readTime    DateTime?     // 已读时间
+  content     String        // 消息内容
+  sendTime    DateTime      @default(now()) // 发送时间
+  status      ServiceMessageStatus @default(正常) // 状态（修复枚举重名）
+  withdrawTime DateTime?    // 撤回时间
+  replyMessageId String?    // 被回复信息id
+  replyLevel  Int           @default(0) // 回复层级数
+
+  room        ServiceSessionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  notifications ServiceNotification[] // 关联通知
+}
+
+// 用户-客服评价表
+model ServiceEvaluation {
+  id          String        @id @default(uuid())
+  userId      String        @db.VarChar(36) // 用户id
+  roomId      String        @db.VarChar(36) // 会话室id
+  adminId     String        @db.VarChar(36) // 客服id（管理员id）
+  content     String?       // 评价内容
+  star        Decimal       @db.Decimal(2, 1) // 评价星星数（1~5，0.5为单位）
+  createdAt   DateTime      @default(now()) // 添加时间
+  updatedAt   DateTime      @updatedAt // 更新时间
+  status      ServiceEvaluationStatus @default(正常) // 状态
+  withdrawReason String?    // 撤回原因
+
+  user        User          @relation(fields: [userId], references: [id])
+  room        ServiceSessionRoom @relation(fields: [roomId], references: [id])
+  admin       Admin         @relation(fields: [adminId], references: [id])
+}
+
+// 客服指标表
+model ServiceMetric {
+  id          String        @id @default(uuid())
+  adminId     String        @db.VarChar(36) // 客服id（管理员id）
+  sessionNum  Int           @default(0) // 会话数
+  evaluatedNum Int          @default(0) // 已评价会话数
+  avgStar     Decimal       @db.Decimal(2, 1) @default(0) // 平均星星数
+  goodNum     Int           @default(0) // 好评数（4以上）
+  goodRate    Decimal       @db.Decimal(2, 2) @default(0) // 好评率
+  statTime    DateTime      // 统计时间
+
+  admin       Admin         @relation(fields: [adminId], references: [id])
+
+  @@unique([adminId, statTime])
+}
+
+// 管理员Session表
+model AdminSession {
+  id          String        @id @default(uuid())
+  adminId     String        @db.VarChar(36) // 管理员id
+  sessionId   String        @unique // session唯一标识符
+  data        Json          // 存储的管理员信息（json格式）
+  expireTime  DateTime      // 过期时间
+  createdAt   DateTime      @default(now()) // 创建时间
+  updatedAt   DateTime      @updatedAt // 修改时间
+
+  admin       Admin         @relation(fields: [adminId], references: [id])
+  logins      AdminLogin[]  // 关联登陆记录
+}
+
+// 管理员登陆表
+model AdminLogin {
+  id          String        @id @default(uuid())
+  adminId     String        @db.VarChar(36) // 管理员id
+  sessionId   String        @db.VarChar(36) // session id
+  deviceName  String        // 设备名称
+  deviceType  String        // 设备类型（手机/电脑）
+  loginTime   DateTime      @default(now()) // 登陆时间
+  loginIp     String?       // 登陆ip
+  logoutTime  DateTime?     // 登出时间
+  sessionExpireTime DateTime // session过期时间
+
+  admin       Admin         @relation(fields: [adminId], references: [id])
+  session     AdminSession  @relation(fields: [sessionId], references: [id])
 }
