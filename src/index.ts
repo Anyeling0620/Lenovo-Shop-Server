@@ -7,15 +7,15 @@ import { showRoutes } from 'hono/dev'
 import { createNodeWebSocket } from '@hono/node-ws'
 import dotenv from 'dotenv'
 import { db } from './utils/db'
-import authRouter from './routes/auth.routes'
-import devices from './routes/device.routes'
+import authRouter from './routes/client/auth.routes'
+import devices from './routes/client/device.routes'
 import { clientIpMiddleware } from './middleware/client-ip.middleware'
 import { HTTPException } from 'hono/http-exception'
-import sendCode from './routes/send-code.routes'
-import user from './routes/user-info.routes'
+import sendCode from './routes/client/send-code.routes'
+import user from './routes/client/user-info.routes'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { join } from 'path'
-import products from './routes/product.routes'
+import products from './routes/client/product.routes'
 import admin from './routes/admin/admin.routes'
 import { authAdmin } from './middleware/session.middleware'
 
@@ -34,7 +34,7 @@ app.get('/static/*', serveStatic({
 
 app.use('*', cors({
   origin: CORS_ORIGINS!, // 允许的来源
-  credentials: true, // 如果前端需要带 cookie
+  credentials: true,     // 如果前端需要带 cookie
 }));
 
 app.use('*', clientIpMiddleware) // 获取客户端ip

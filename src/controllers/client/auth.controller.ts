@@ -1,8 +1,8 @@
 import { log } from 'console';
-import { registerUser, loginUser, refreshAccessToken, clearLoginSession } from '../services/auth.service';
-import { sendCode } from '../utils/verification';
+import { sendCode } from '../../utils/verification';
 import { serialize } from 'cookie';
-import { parseCookies } from '../utils/token';
+import { parseCookies } from '../../utils/token';
+import { registerUser, loginUser, refreshAccessToken, clearLoginSession } from '../../services/client/auth.service';
 
 export async function registerController(c: any) {
     const body = await c.req.json();

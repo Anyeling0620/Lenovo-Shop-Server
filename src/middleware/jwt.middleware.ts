@@ -1,6 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import { verifyAccessToken } from '../utils/token';
-import { verifyUser } from '../services/jwt.service';
+import { verifyUser } from '../services/client/jwt.service';
 
 export const jwtMiddleware = async (c: any, next: any) => {
   if (c.req.method === 'OPTIONS') {

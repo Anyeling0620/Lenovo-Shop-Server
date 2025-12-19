@@ -1,7 +1,7 @@
 import { serialize } from "cookie";
 import { deleteAdminSession, recordAdminLoginDevice, vailidateAdminLogin } from "../../services/admin/admin-auth.service";
 import { createAdminSession } from "../../services/admin/session.serivce";
-import { AdminLoginResponse, AdminSessionData } from "../../types/admin.type";
+import { AdminLoginResponse, AdminSessionData } from "../../types/admin/admin.type";
 import { parseCookies } from "../../utils/token";
 
 export const adminLogin = async (c: any) => {

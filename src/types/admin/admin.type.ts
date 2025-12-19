@@ -44,6 +44,7 @@ export interface CategoryInfo {
     id: string; // 专区ID
     name: string; // 专区名称
     // 可根据Category表补充其他字段，如parentId、sort等
+    code: string; // 专区编码
 }
 
 // 新增：权限信息API响应类型

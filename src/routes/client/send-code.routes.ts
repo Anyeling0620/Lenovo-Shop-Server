@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { sendCodeController } from "../controllers/auth.controller";
+import { sendCodeController } from "../../controllers/client/auth.controller";
 
 const sendCode = new Hono()
 

@@ -1,13 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
-import {
-  getAccountInfoService,
-  getLoginUserInfoService,
-  updateUserInfoService,
-  uploadAvatarService,
-  changeEmailService,
-  changePasswordService,
-} from '../services/user-info.service';
+
 import { log } from 'console';
+import { getLoginUserInfoService, getAccountInfoService, uploadAvatarService, updateUserInfoService, changeEmailService, changePasswordService } from '../../services/client/user-info.service';
 
 
 export async function getLoginUserInfoController(c: any) {

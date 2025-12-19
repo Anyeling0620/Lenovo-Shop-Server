@@ -1,5 +1,5 @@
 import { HTTPException } from "hono/http-exception";
-import { AdminSessionData } from "../../types/admin.type";
+import { AdminSessionData } from "../../types/admin/admin.type";
 import { db } from "../../utils/db";
 import { v4 as uuid } from "uuid";
 import { AdminStatus } from "@prisma/client";

@@ -1,5 +1,5 @@
 import { AdminStatus, IdentityStatus } from "@prisma/client";
-import { AdminLoginRequest } from "../../types/admin.type";
+import { AdminLoginRequest } from "../../types/admin/admin.type";
 import { db } from "../../utils/db";
 import { HTTPException } from "hono/http-exception";
 import bcrypt from 'bcryptjs';
@@ -11,7 +11,6 @@ export const vailidateAdminLogin = async (account: string, password: string) => 
     if (!account || !password) {
         throw new HTTPException(400, { message: "账号或密码不能为空" });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
     const admin = await db.admin.findUnique({
         where: {
             account: account,
@@ -57,12 +56,26 @@ export const vailidateAdminLogin = async (account: string, password: string) => 
     })
 
     if (!admin) {
-        throw new HTTPException(405, { message: "管理员账号不存在或已被禁用" });
+        throw new HTTPException(401, { message: "管理员账号不存在或已被禁用" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
         throw new HTTPException(400, { message: "密码错误" });
+    }
+
+    const validSession = await db.adminSession.findMany({
+        where: {
+            adminId: admin.id,
+            expireTime: { gt: new Date() },
+        },
+        select: {
+            id: true,
+        },
+    })
+    for (const session of validSession) {
+        await deleteAdminSession(session.id);
+        log(`管理员${admin.account}的会话${session.id}已被强制注销`)
     }
 
     const permissionIds: string[] = [];
@@ -121,32 +134,32 @@ export const recordAdminLoginDevice = async (
 
 
 export const deleteAdminSession = async (sessionPrimaryId: string) => {
-  // 1. 查询 Session 是否存在
-  const session = await db.adminSession.findUnique({
-    where: { id: sessionPrimaryId },
-  });
+    // 1. 查询 Session 是否存在
+    const session = await db.adminSession.findUnique({
+        where: { id: sessionPrimaryId },
+    });
 
-  if (!session) {
-    throw new HTTPException(401, { message: "会话不存在或已过期" });
-  }
-
-  // 2. 更新 AdminLogin 表的登出时间（若需要）
-  await db.adminLogin.updateMany({
-    where: {
-      sessionId: sessionPrimaryId, // 你的 AdminLogin.sessionId 关联的是主键 id
-    },
-    data: {
-      logoutTime: new Date(),
-    },
-  });
-
-  // 3. 删除 Session 记录
-  await db.adminSession.update({
-    where: { id: sessionPrimaryId },
-    data:{
-        expireTime: new Date(),
+    if (!session) {
+        throw new HTTPException(401, { message: "会话不存在或已过期" });
     }
-  });
 
-  return true;
+    // 2. 更新 AdminLogin 表的登出时间（若需要）
+    await db.adminLogin.updateMany({
+        where: {
+            sessionId: sessionPrimaryId,
+        },
+        data: {
+            logoutTime: new Date(),
+        },
+    });
+
+    // 3. 删除 Session 记录
+    await db.adminSession.update({
+        where: { id: sessionPrimaryId },
+        data: {
+            expireTime: new Date(),
+        }
+    });
+
+    return true;
 };

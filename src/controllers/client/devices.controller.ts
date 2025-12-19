@@ -1,6 +1,6 @@
 // controllers/device.controller.ts
-import { parseCookies } from '../utils/token';
-import { getUserDevices, logoutDevice, logoutOtherDevices } from '../services/device.service';
+import { getUserDevices, logoutDevice, logoutOtherDevices } from '../../services/client/device.service';
+import { parseCookies } from '../../utils/token';
 
 export async function getLoginDevicesController(c: any) {
   const user = c.get('user');

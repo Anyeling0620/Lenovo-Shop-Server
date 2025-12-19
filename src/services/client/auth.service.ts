@@ -1,9 +1,9 @@
-import { db } from '../utils/db';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { generateAccessToken, generateRefreshToken, hashToken } from '../utils/token';
-import { verifyCode } from '../utils/verification';
 import { HTTPException } from 'hono/http-exception';
+import { db } from '../../utils/db';
+import { generateAccessToken, generateRefreshToken, hashToken } from '../../utils/token';
+import { verifyCode } from '../../utils/verification';
 
 export async function registerUser(data: any, deviceInfo: any) {
   const { email, password, password_confirm, verify_code } = data;

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { jwtMiddleware } from "../middleware/jwt.middleware";
-import { getLoginDevicesController, logoutDeviceController, logoutOtherDevicesController } from "../controllers/devices.controller";
+import { jwtMiddleware } from "../../middleware/jwt.middleware";
+import { getLoginDevicesController, logoutDeviceController, logoutOtherDevicesController } from "../../controllers/client/devices.controller";
 
 
 

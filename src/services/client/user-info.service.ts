@@ -1,11 +1,11 @@
 import { HTTPException } from 'hono/http-exception';
-import { AccountInfo, ChangeEmailPayload, ChangePasswordPayload, UpdateUserInfoDTO, UserInfo } from '../types/user-info.type';
-import { db } from '../utils/db';
 import path from 'path';
 import { promises as fs } from 'fs';
-import { verifyCode } from '../utils/verification';
 import bcrypt from 'bcryptjs';
 import { log } from 'console';
+import { AccountInfo, ChangeEmailPayload, ChangePasswordPayload, UpdateUserInfoDTO, UserInfo } from '../../types/client/user-info.type';
+import { db } from '../../utils/db';
+import { verifyCode } from '../../utils/verification';
 
 
 export async function getLoginUserInfoService(userId: string): Promise<UserInfo> {

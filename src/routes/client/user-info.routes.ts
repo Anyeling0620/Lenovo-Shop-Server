@@ -1,13 +1,7 @@
 import { Hono } from "hono";
-import { jwtMiddleware } from "../middleware/jwt.middleware";
-import {
-    getAccountInfoController,
-    getLoginUserInfoController,
-    updateAccountInfoController,
-    uploadAvatarController,
-    changeEmailController,
-    changePasswordController,
-} from "../controllers/user-info.controller";
+import { changeEmailController, changePasswordController, getAccountInfoController, getLoginUserInfoController, updateAccountInfoController, uploadAvatarController } from "../../controllers/client/user-info.controller";
+import { jwtMiddleware } from "../../middleware/jwt.middleware";
+
 
 
 const user = new Hono()

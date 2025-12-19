@@ -1,4 +1,4 @@
-import { db } from "../utils/db";
+import { db } from "../../utils/db";
 
 export async function verifyUser(userId:string) {
     const user_id = await db.user.findUnique({

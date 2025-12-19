@@ -240,7 +240,7 @@ model UserLogin {
   @@unique([userId, deviceId])
 }
 
-// 品牌表
+// 品牌表1
 model Brand {
   id          String       @id @default(uuid())
   name        String       @unique // 品牌名称
@@ -256,7 +256,7 @@ model Brand {
   products    Product[]    // 关联商品
 }
 
-// 商品品类表
+// 商品品类表1
 model Category {
   id          String        @id @default(uuid())
   name        String        // 品类名称
@@ -273,7 +273,7 @@ model Category {
   adminCategoryRelations AdminProductCategory[] // 关联管理员-商品专区
 }
 
-// 商品基本信息表
+// 商品基本信息表1
 model Product {
   id          String        @id @default(uuid())
   brandId     String        @db.VarChar(36) // 商品品牌id
@@ -304,7 +304,7 @@ model Product {
   shelfProductItems ShelfProductItem[] @relation("ShelfProductItemProduct")
 }
 
-// 商品标签表
+// 商品标签表1
 model Tag {
   id          String        @id @default(uuid())
   name        String        @unique // 标签名称
@@ -317,7 +317,7 @@ model Tag {
   products    ProductTagRelation[] // 关联商品
 }
 
-// 商品-标签关联表
+// 商品-标签关联表1
 model ProductTagRelation {
   id          String        @id @default(uuid())
   productId   String        @db.VarChar(36) // 商品id
@@ -331,7 +331,7 @@ model ProductTagRelation {
   @@unique([productId, tagId])
 }
 
-// 商品配置表
+// 商品配置表1
 model ProductConfig {
   id          String             @id @default(uuid())
   productId   String             @db.VarChar(36) // 商品id
@@ -354,7 +354,7 @@ model ProductConfig {
   evaluations ProductEvaluation[] // 关联评价
 }
 
-// 商品介绍宣传图表
+// 商品介绍宣传图表1
 model ProductBanner {
   id          String        @id @default(uuid())
   productId   String        @db.VarChar(36) // 商品id
@@ -367,7 +367,7 @@ model ProductBanner {
   @@index([productId, sort])
 }
 
-// 商品外观图表
+// 商品外观图表1
 model ProductAppearance {
   id          String        @id @default(uuid())
   productId   String        @db.VarChar(36) // 商品id
@@ -377,7 +377,7 @@ model ProductAppearance {
   product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
-// 货架商品表
+// 货架商品表1
 model ShelfProduct {
   id          String             @id @default(uuid())
   categoryId  String             @db.VarChar(36) // 货架专区id（品类表id）
@@ -401,7 +401,7 @@ model ShelfProduct {
   @@unique([categoryId, productId])
 }
 
-// 库存表
+// 库存表1
 model Stock {
   id          String        @id @default(uuid())
   configId    String        @db.VarChar(36) // 商品配置id
@@ -417,7 +417,7 @@ model Stock {
   @@unique([configId])
 }
 
-// 上架商品数量表
+// 上架商品数量表1
 model ShelfProductItem {
   id          String        @id @default(uuid())
   shelfProductId String      @db.VarChar(36) // 货架商品id
@@ -436,7 +436,7 @@ model ShelfProductItem {
   @@unique([shelfProductId, configId])
 }
 
-// 新品推送表
+// 新品推送表1
 model NewProductPush {
   id          String             @id @default(uuid())
   shelfProductId String          @db.VarChar(36) // 货架商品id
@@ -451,7 +451,7 @@ model NewProductPush {
   @@unique([shelfProductId])
 }
 
-// 首页推送表
+// 首页推送表1
 model HomePush {
   id          String             @id @default(uuid())
   shelfProductId String          @db.VarChar(36) // 货架商品id
@@ -466,7 +466,7 @@ model HomePush {
   @@unique([shelfProductId])
 }
 
-// 秒杀轮次表
+// 秒杀轮次表1
 model SeckillRound {
   id          String           @id @default(uuid())
   title       String           // 秒杀轮次标题
@@ -480,7 +480,7 @@ model SeckillRound {
   products    SeckillProduct[] // 关联秒杀商品
 }
 
-// 秒杀商品表
+// 秒杀商品表1
 model SeckillProduct {
   id          String        @id @default(uuid())
   roundId     String        @db.VarChar(36) // 轮次id
@@ -496,7 +496,7 @@ model SeckillProduct {
   @@unique([roundId, productId])
 }
 
-// 秒杀商品配置表
+// 秒杀商品配置表1
 model SeckillProductConfig {
   id          String                   @id @default(uuid())
   seckillProductId String              @db.VarChar(36) // 秒杀商品id
@@ -504,7 +504,7 @@ model SeckillProductConfig {
   shelfNum    Int                      @default(0) // 上架数量
   remainNum   Int                      @default(0) // 剩余数量
   lockNum     Int                      @default(0) // 锁定数量
-  seckillPrice Decimal                 @db.Decimal(10, 2) // 直接秒杀价
+  seckillPrice Decimal                 @db.Decimal(10, 2) // 直接秒杀价=商品原价-优惠金额
   createdAt   DateTime                 @default(now()) // 添加时间
   updatedAt   DateTime                 @updatedAt // 更新时间
   status      SeckillProductConfigStatus @default(正常) // 状态
@@ -534,7 +534,7 @@ model Cart {
   @@unique([userId, productId, configId])
 }
 
-// 领券中心表
+// 领券中心表1
 model CouponCenter {
   id          String        @id @default(uuid())
   couponId    String        @db.VarChar(36) // 优惠券id
@@ -550,7 +550,7 @@ model CouponCenter {
   @@unique([couponId])
 }
 
-// 优惠券表
+// 优惠券表1
 model Coupon {
   id          String        @id @default(uuid())
   name        String        // 优惠券名称
@@ -587,7 +587,7 @@ model Voucher {
   orderRelations OrderVoucherRelation[] // 关联订单
 }
 
-// 商品-优惠券可用关联表
+// 商品-优惠券可用关联表1
 model ProductCouponRelation {
   id          String        @id @default(uuid())
   productId   String        @db.VarChar(36) // 商品id

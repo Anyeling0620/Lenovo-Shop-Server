@@ -1,8 +1,8 @@
 // services/device.service.ts
-import { DeviceInfo, DeviceType } from '../types/device.type';
-import { db } from '../utils/db';
-import { hashToken } from '../utils/token';
 import { HTTPException } from 'hono/http-exception';
+import { DeviceType, DeviceInfo } from '../../types/client/device.type';
+import { db } from '../../utils/db';
+import { hashToken } from '../../utils/token';
 
 export async function getUserDevices(userId: string) {
     const devices = await db.userLogin.findMany({

@@ -1,7 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import { db } from "../../utils/db";
 import { AdminStatus, IdentityStatus, PermissionStatus } from "@prisma/client";
-import { AdminPermissionResponse, CategoryInfo, IdentityInfo, PermissionInfo } from "../../types/admin.type";
+import { AdminPermissionResponse, CategoryInfo, IdentityInfo, PermissionInfo } from "../../types/admin/admin.type";
 import { log } from "console";
 
 /**
@@ -110,6 +110,7 @@ export const getAdminPermissionInfo = async (adminId: string): Promise<AdminPerm
         select: {
           id: true,
           name: true,
+          code: true,
         },
       },
     },
@@ -155,6 +156,7 @@ export const getAdminPermissionInfo = async (adminId: string): Promise<AdminPerm
     categoryMap.set(category.id, {
       id: category.id,
       name: category.name,
+      code: category.code,
     });
   });
   const categoryList = Array.from(categoryMap.values());
