@@ -133,6 +133,7 @@ export async function getProductCardBySearchController(c: Context) {
     tabFilters: { self, discountCoupon, custom, installment, tradeIn },
     keyword,
   };
+  log(params)
 
   const productCardData = await getProductCardBySearchService(params, userId);
   return c.json(

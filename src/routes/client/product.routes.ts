@@ -9,6 +9,7 @@ import { getProductEvaluationsController, likeEvaluationController } from "../..
 import { getSeckillProductDetailController, getShelfProductDetailController } from "../../controllers/client/product-detail.controller";
 import { jwtMiddleware } from "../../middleware/jwt.middleware";
 import { jwtLooseMiddleware } from "../../middleware/jwt-loose.middleware";
+import { getCouponCenterCouponsController } from "../../controllers/client/coupon-center.controller";
 
 
 
@@ -37,5 +38,8 @@ products.get("/shelf-products/:id/detail",jwtLooseMiddleware, getShelfProductDet
 
 // 商品详情（秒杀区）-- 不可重复购买
 products.get("/seckill-products/:seckillId/:id/detail",jwtLooseMiddleware, getSeckillProductDetailController);
+
+// 优惠券领券中心
+products.get('/coupon-center/coupons', jwtLooseMiddleware,getCouponCenterCouponsController)
 
 export default products

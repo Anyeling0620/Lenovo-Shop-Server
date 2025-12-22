@@ -578,7 +578,7 @@ model Voucher {
   id          String        @id @default(uuid())
   title       String        // 标题
   description String?       // 描述
-  originalAmount Decimal    @db.Decimal(10, 2) // 原始金额
+  originalAmount Decimal    @db.Decimal(12, 2) // 原始金额
   startTime   DateTime      // 开始时间
   endTime     DateTime      // 结束时间
   creatorId   String        // 创建者id（管理员id）
@@ -630,8 +630,8 @@ model UserVoucher {
   status      Boolean       @default(true) // 代金券状态
   getTime     DateTime      @default(now()) // 获取时间
   useUpTime   DateTime?     // 用尽时间
-  usedAmount  Decimal       @db.Decimal(10, 2) @default(0) // 使用金额
-  remainAmount Decimal      @db.Decimal(10, 2) // 剩余金额
+  usedAmount  Decimal       @db.Decimal(12, 2) @default(0) // 使用金额
+  remainAmount Decimal      @db.Decimal(12, 2) // 剩余金额
 
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   voucher     Voucher       @relation(fields: [voucherId], references: [id])

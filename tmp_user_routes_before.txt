@@ -3,7 +3,6 @@ import { changeEmailController, changePasswordController, getAccountInfoControll
 import { jwtMiddleware } from "../../middleware/jwt.middleware";
 import { addToShoppingCardController, getShoppingCardController } from "../../controllers/client/shop-card.controller";
 import { claimCouponController, getUserCouponsController, getUserVouchersController } from "../../controllers/client/coupon-center.controller";
-import { addAddressController, getAddressListController, removeAddressController, setDefaultAddressController, updateAddressController } from "../../controllers/client/address.controller";
 
 
 
@@ -21,11 +20,11 @@ user.get('/coupons', jwtMiddleware, getUserCouponsController);
 user.get('/vouchers',jwtMiddleware,getUserVouchersController);
 
 
-user.post('/add-address', jwtMiddleware,addAddressController)    //  接收所有字段，添加后返回id，
-user.put('/update-address/:address-id',jwtMiddleware,updateAddressController)   // 接收所有需要的字段，从bodyjson中获取
-user.delete('/remove-address/:address-id',jwtMiddleware,removeAddressController)  
-user.get('/address-list',jwtMiddleware,getAddressListController)
-user.patch('/set-default/:address-id',jwtMiddleware,setDefaultAddressController)  // 将地址设为默认，只能有一个默认，如果已有默认，就取消之前的默认，重新设置这个为默认
+user.post('/add-address', jwtMiddleware,)    //  接收所有字段，添加后返回id�?
+user.put('/update-address/:address-id',jwtMiddleware,)   // 接收所有需要的字段，从bodyjson中获�?
+user.delete('/remove-address',jwtMiddleware,)  
+user.get('/address-list',jwtMiddleware,)
+user.patch('/set-default/:address-id',jwtMiddleware,)  // 将地址设为默认，只能有一个默认，如果已有默认，就取消之前的默认，重新设置这个为默�?
 
 
 export default user;

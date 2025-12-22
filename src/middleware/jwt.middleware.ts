@@ -1,6 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { verifyAccessToken } from '../utils/token';
 import { verifyUser } from '../services/client/jwt.service';
+import { log } from 'console';
 
 export const jwtMiddleware = async (c: any, next: any) => {
   if (c.req.method === 'OPTIONS') {
@@ -29,7 +30,6 @@ export const jwtMiddleware = async (c: any, next: any) => {
 
   const user = await verifyUser(payload.user_id)
   if (!user) throw new HTTPException(401, { message: '令牌信息异常' });
-
 
   // 设置用户信息
   c.set('user', {
