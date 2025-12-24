@@ -3,7 +3,7 @@ import { CouponCenterListResponse } from '../../types/client/coupon-center.type'
 import { UserCouponListResponse } from '../../types/client/user-coupon.type';
 import { UserVoucherListResponse } from '../../types/client/user-voucher.type';
 import { HTTPException } from 'hono/http-exception';
-import { UserCouponStatus } from '@prisma/client';
+import { RelationStatus, UserCouponStatus } from '@prisma/client';
 
 export async function listCouponCenterCouponsService(userId?: string): Promise<CouponCenterListResponse> {
   const now = new Date();
@@ -109,7 +109,7 @@ export async function claimCouponService(userId: string, couponId: string) {
 
 
 
-export async function getUserCouponsService(userId: string):Promise<UserCouponListResponse> {
+export async function getUserCouponsService(userId: string): Promise<UserCouponListResponse> {
   if (!userId) throw new HTTPException(401, { message: '未登录' });
   const rows = await db.userCoupon.findMany({
     where: { userId },
@@ -140,7 +140,7 @@ export async function getUserCouponsService(userId: string):Promise<UserCouponLi
     },
   }));
 
-  return { items }  ;
+  return { items };
 }
 
 export async function getUserVouchersService(userId: string): Promise<UserVoucherListResponse> {
@@ -173,4 +173,37 @@ export async function getUserVouchersService(userId: string): Promise<UserVouche
   }));
 
   return { items };
+}
+
+
+export async function getCouponsByProductService(userId: string, productId: string): Promise<UserCouponListResponse> {
+  if (!productId) throw new HTTPException(400, { message: "缺少参数" });
+
+  // 获取用户的所有优惠券
+  const items = await getUserCouponsService(userId);
+  
+  // 查询该商品可用的优惠券ID列表
+  const validCouponRelations = await db.productCouponRelation.findMany({
+    where: {
+      productId,
+      status: RelationStatus.生效, // 只查询状态为生效的关联
+      couponId: {
+        in: items.items.map(item => item.couponId) // 只查询用户拥有的优惠券
+      }
+    },
+    select: {
+      couponId: true
+    }
+  });
+  
+  // 创建可用的优惠券ID集合，便于快速查找
+  const validCouponIds = new Set(validCouponRelations.map(rel => rel.couponId));
+  
+  // 为每个优惠券添加 useOK 字段
+  const itemsWithUseOK = items.items.map(item => ({
+    ...item,
+    useOK: validCouponIds.has(item.couponId) // 如果优惠券在可用列表中，则 useOK 为 true
+  }));
+  
+  return { items: itemsWithUseOK };
 }
