@@ -23,5 +23,8 @@ order.get('/list/query',jwtMiddleware,orderController.getOrderList)
 
 order.delete('/delete-order/:orderId',jwtMiddleware,orderController.deleteOrder)
 
+order.post('/confirm-receipt', jwtMiddleware, orderController.confirmReceipt);
+
+
 export default order
 

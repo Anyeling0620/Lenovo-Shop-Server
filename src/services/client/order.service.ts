@@ -1,6 +1,7 @@
 import { CreateOrderInput, OrderDetailResponse, OrderItemInput, OrderItemSummary, OrderListItem, OrderListQuery, OrderListResponse, OrderResponse, OrderStats, SimpleOrderItem } from '../../types/client/order.type';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../../utils/db';
+import { log } from 'console';
 
 export class OrderService {
     /**
@@ -113,7 +114,7 @@ export class OrderService {
                         tx.userCoupon.updateMany({
                             where: {
                                 userId: input.userId,
-                                id:couponId,
+                                id: couponId,
                                 status: '未使用',
                             },
                             data: {
@@ -156,6 +157,76 @@ export class OrderService {
             createdAt: order.createdAt,
             payLimitTime: order.payLimitTime,
         };
+    }
+
+    /**
+ * 确认收货
+ */
+    async confirmReceipt(orderId: string, userId: string): Promise<void> {
+        // 1. 验证订单
+        const order = await db.order.findFirst({
+            where: {
+                id: orderId,
+                userId,
+                isVisible: true,
+            },
+            include: {
+                items: true, // 需要获取订单商品项
+            },
+        });
+
+        if (!order) {
+            throw new HTTPException(404, { message: '订单不存在' });
+        }
+
+        // 2. 检查订单状态
+        if (order.status !== '待收货') {
+            throw new HTTPException(400, {
+                message: `只有"待收货"的订单可以确认收货，当前状态为"${order.status}"`
+            });
+        }
+
+        // 4. 更新订单状态并清除锁库存（使用事务）
+        await db.$transaction(async (tx) => {
+            // 更新订单状态
+            const now = new Date();
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    status: '已收货',
+                    receiveTime: now,
+                    completeTime: now, // 同时标记为完成
+                },
+            });
+
+            // 5. 清除锁库存（真正减少库存）
+            for (const item of order.items) {
+                if (item.seckill) {
+                    // 秒杀商品：清除锁库存，减少剩余库存
+                    await tx.seckillProductConfig.updateMany({
+                        where: {
+                            configId: item.configId,
+                        },
+                        data: {
+                            lockNum: { decrement: item.quantity },
+                            // 注意：这里不需要再减少 remainNum，因为支付时已经减少了
+                        },
+                    });
+                } else {
+                    // 普通商品：清除锁库存，减少上架库存
+                    await tx.shelfProductItem.updateMany({
+                        where: {
+                            productId: item.productId,
+                            configId: item.configId,
+                        },
+                        data: {
+                            lockNum: { decrement: item.quantity },
+                            // 注意：这里不需要再减少 shelfNum，因为支付时已经减少了
+                        },
+                    });
+                }
+            }
+        });
     }
 
     /**
@@ -549,7 +620,7 @@ export class OrderService {
             createdAt: order.createdAt,
             payTime: order.payTime || undefined,
             items: order.items.map((item) => ({
-                id: item.id,
+                id: item.configId,
                 productId: item.productId,
                 productName: item.nameSnapshot,
                 config1: item.config1Snapshot,
@@ -653,7 +724,7 @@ export class OrderService {
 
             // 商品信息
             items: order.items.map((item) => ({
-                id: item.id,
+                id: item.configId,
                 productId: item.productId,
                 productName: item.nameSnapshot,
                 config1: item.config1Snapshot,
@@ -792,41 +863,41 @@ export class OrderService {
     }
 
     async deleteOrderService(userId: string, orderId: string): Promise<number> {
-    // 1. 验证订单是否存在且属于该用户
-    const order = await db.order.findFirst({
-      where: {
-        id: orderId,
-        userId: userId,
-        isVisible: true, // 只查询未删除的订单
-      },
-    });
+        // 1. 验证订单是否存在且属于该用户
+        const order = await db.order.findFirst({
+            where: {
+                id: orderId,
+                userId: userId,
+                isVisible: true, // 只查询未删除的订单
+            },
+        });
 
-    if (!order) {
-      throw new HTTPException(404, { 
-        message: '订单不存在或已被删除' 
-      });
+        if (!order) {
+            throw new HTTPException(404, {
+                message: '订单不存在或已被删除'
+            });
+        }
+
+        // 2. 检查订单状态是否允许删除
+        const allowedStatuses = ['待支付', '已取消', '已完成'];
+        if (!allowedStatuses.includes(order.status)) {
+            throw new HTTPException(400, {
+                message: `订单状态为"${order.status}"，不允许删除`
+            });
+        }
+
+        // 3. 执行逻辑删除
+        const result = await db.order.update({
+            where: {
+                id: orderId,
+                userId: userId, // 确保只能删除自己的订单
+            },
+            data: {
+                isVisible: false,
+            },
+        });
+        return result ? 1 : 0;
     }
-
-    // 2. 检查订单状态是否允许删除
-    const allowedStatuses = ['待支付', '已取消', '已完成'];
-    if (!allowedStatuses.includes(order.status)) {
-      throw new HTTPException(400, { 
-        message: `订单状态为"${order.status}"，不允许删除` 
-      });
-    }
-
-    // 3. 执行逻辑删除
-    const result = await db.order.update({
-      where: {
-        id: orderId,
-        userId: userId, // 确保只能删除自己的订单
-      },
-      data: {
-        isVisible:false,
-      },
-    });
-    return result ? 1 : 0;
-  }
 
 }
 

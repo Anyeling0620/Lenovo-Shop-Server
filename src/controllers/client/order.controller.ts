@@ -3,6 +3,7 @@ import { CreateOrderInput, CancelOrderInput, PaymentInput, OrderListQuery, Order
 import { PaymentService } from '../../services/client/payment.service';
 import { OrderService } from '../../services/client/order.service';
 import { log } from 'console';
+import { HTTPException } from 'hono/http-exception';
 
 const orderService = new OrderService();
 const paymentService = new PaymentService();
@@ -18,7 +19,7 @@ export class OrderController {
         log(body)
         // 验证必要字段
         if (!body.addressId || !body.items || body.items.length === 0) {
-            throw new Error('缺少必要参数');
+            throw new HTTPException(400, { message: '缺少必要参数' });
         }
         const result = await orderService.createOrder({ ...body, userId });
         log(result)
@@ -29,6 +30,31 @@ export class OrderController {
         });
     }
 
+    /**
+ * 确认收货
+ */
+    async confirmReceipt(c: Context) {
+        const body = await c.req.json() as { orderId: string };
+
+        if (!body.orderId) {
+            throw new HTTPException(400, { message: '订单ID不能为空' });
+        }
+
+        const user = c.get('user');
+        const userId = user?.user_id;
+
+        await orderService.confirmReceipt(body.orderId, userId);
+
+        return c.json({
+            code: 200,
+            message: '确认收货成功',
+            data: {
+                orderId: body.orderId,
+                status: '已收货',
+                receiveTime: new Date(),
+            },
+        });
+    }
 
     /**
      * 取消订单
@@ -36,7 +62,7 @@ export class OrderController {
     async cancelOrder(c: Context) {
         const body = await c.req.json() as CancelOrderInput;
         if (!body.orderId) {
-            throw new Error('订单ID不能为空');
+            throw new HTTPException(400, { message: '订单ID不能为空' });
         }
         const user = c.get('user');
         const userId = user?.user_id
@@ -53,7 +79,7 @@ export class OrderController {
     async payWithVoucher(c: Context) {
         const body = await c.req.json() as PaymentInput;
         if (!body.orderId || !body.voucherId) {
-            throw new Error('订单ID和代金券ID不能为空');
+            throw new HTTPException(400, { message: '订单ID和代金券ID不能为空' });
         }
         const user = c.get('user');
         const userId = user?.user_id
@@ -80,7 +106,7 @@ export class OrderController {
 
         const orderId = c.req.query('orderId');
         if (!orderId) {
-            throw new Error('订单ID不能为空');
+            throw new HTTPException(400, { message: '订单ID不能为空' });
         }
         const user = c.get('user');
         const userId = user?.user_id
@@ -128,7 +154,7 @@ export class OrderController {
     async getOrderDetail(c: Context) {
         const orderId = c.req.param('id');
         if (!orderId) {
-            throw new Error('订单ID不能为空');
+            throw new HTTPException(400, { message: '订单ID不能为空' });
         }
 
         const user = c.get('user');
@@ -177,7 +203,7 @@ export class OrderController {
         const user = c.get('user');
         const userId = user?.user_id
         const orderId = c.req.param('orderId');
-        const count = orderService.deleteOrderService(userId,orderId)
+        const count = orderService.deleteOrderService(userId, orderId)
 
         return c.json({
             code: 200,

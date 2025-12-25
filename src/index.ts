@@ -19,6 +19,7 @@ import products from './routes/client/product.routes'
 import admin from './routes/admin/admin.routes'
 import { authAdmin } from './middleware/session.middleware'
 import order from './routes/client/order.route'
+import { afterSale } from './routes/client/after-sale.route'
 
 dotenv.config()
 const PORT = Number(process.env.PORT)
@@ -50,6 +51,7 @@ app.route('/api', sendCode)
 app.route('/api/user', user)
 app.route('/api/products',products)
 app.route('/api/order', order)
+app.route('/api/after-sale', afterSale)
 
 app.use('/admin/*', authAdmin)
 app.route('/admin', admin )
