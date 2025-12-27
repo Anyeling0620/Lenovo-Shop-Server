@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { changeEmailController, changePasswordController, getAccountInfoController, getLoginUserInfoController, updateAccountInfoController, uploadAvatarController } from "../../controllers/client/user-info.controller";
 import { jwtMiddleware } from "../../middleware/jwt.middleware";
-import { addToShoppingCardController, getShoppingCardController } from "../../controllers/client/shop-card.controller";
-import { claimCouponController, getUserCouponsController, getUserVouchersController } from "../../controllers/client/coupon-center.controller";
+import { addToShoppingCardController,
+    deleteShoppingCardsController,
+     getShoppingCardController } from "../../controllers/client/shop-card.controller";
+import { claimCouponController, getUserCouponsController, getUserVouchersController,getUserCouponsByproductController } from "../../controllers/client/coupon-center.controller";
 import { addAddressController, getAddressListController, removeAddressController, setDefaultAddressController, updateAddressController } from "../../controllers/client/address.controller";
 
 
@@ -15,6 +17,7 @@ user.post('/update-info', jwtMiddleware, updateAccountInfoController)
 user.post('/change-email', jwtMiddleware, changeEmailController)
 user.post('/change-password',jwtMiddleware,changePasswordController)
 user.post('/add-shopping-card',jwtMiddleware, addToShoppingCardController)
+user.delete('/delete-shop-cards',jwtMiddleware, deleteShoppingCardsController)
 user.get('/shopping-cards',jwtMiddleware,getShoppingCardController)
 user.post('/coupon-center/claim', jwtMiddleware, claimCouponController)
 user.get('/coupons', jwtMiddleware, getUserCouponsController);
@@ -27,6 +30,7 @@ user.delete('/remove-address/:address-id',jwtMiddleware,removeAddressController)
 user.get('/address-list',jwtMiddleware,getAddressListController)
 user.patch('/set-default/:address-id',jwtMiddleware,setDefaultAddressController)  // 将地址设为默认，只能有一个默认，如果已有默认，就取消之前的默认，重新设置这个为默认
 
+user.get('/coupons/:product-id',jwtMiddleware, getUserCouponsByproductController)
 
 export default user;
 

@@ -11,6 +11,8 @@ export const vailidateAdminLogin = async (account: string, password: string) => 
     if (!account || !password) {
         throw new HTTPException(400, { message: "账号或密码不能为空" });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    log(hashedPassword)
     const admin = await db.admin.findUnique({
         where: {
             account: account,
@@ -58,6 +60,7 @@ export const vailidateAdminLogin = async (account: string, password: string) => 
     if (!admin) {
         throw new HTTPException(401, { message: "管理员账号不存在或已被禁用" });
     }
+    log(admin.password)
 
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {

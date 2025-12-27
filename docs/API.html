@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lenovo Shop 服务端 API 文档</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; line-height: 1.6; max-width: 1100px; margin: 0 auto; padding: 24px; background: #fff; color: #222; }
+    h1 { margin-bottom: 0.2em; }
+    h2 { margin-top: 2em; }
+    h3 { margin-top: 1.2em; }
+    p { margin: 0.2em 0 0.8em; }
+    code { background: #f4f6f8; padding: 2px 4px; border-radius: 3px; }
+    pre { background: #f4f6f8; padding: 12px; border-radius: 6px; overflow: auto; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+    th, td { border: 1px solid #e0e0e0; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #fafafa; font-weight: 600; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #eef2ff; color: #3549ff; font-size: 12px; margin-right: 8px; }
+    details { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+    summary { cursor: pointer; font-weight: 700; }
+    .resp-note { color: #666; font-size: 12px; margin-top: -6px; margin-bottom: 8px; }
+    ul { margin: 0 0 0.6em 1.2em; }
+  </style>
+</head>
+<body>
+  <h1>Lenovo Shop 服务端 API 文档</h1>
+  <p>更新日期：2025-12-27 · 后端框架：Hono (Node)</p>
+
+  <section id="overview">
+    <h2>使用说明</h2>
+    <ul>
+      <li><strong>客户端基准路径</strong>：<code>/api</code>（部分模块再追加前缀，例如 <code>/api/auth</code>、<code>/api/user</code>）。</li>
+      <li><strong>管理后台基准路径</strong>：<code>/admin</code>（除 <code>/admin/login</code> 外均需管理员会话 Cookie）。</li>
+      <li><strong>认证</strong>：
+        <ul>
+          <li>客户端：<code>Authorization: Bearer &lt;access_token&gt;</code>，刷新令牌存于 Cookie <code>refresh_token</code>（全路径）。</li>
+          <li>后台：登录后下发 Cookie <code>admin_session</code>（2 小时有效）；所有后台接口依赖该 Cookie。</li>
+        </ul>
+      </li>
+      <li><strong>通用响应格式</strong>：<code>{"code": number, "message": string, "data": any}</code>，错误时 <code>code</code> 为 HTTP 状态码。</li>
+      <li><strong>文件上传</strong>：使用 <code>multipart/form-data</code>，文件字段名为 <code>images</code>（批量）或 <code>file</code>（头像等）。大小≤5MB，允许 jpeg/png/gif/webp。</li>
+      <li><strong>客户端 IP</strong>：由全局中间件自动注入 <code>c.get('clientIp')</code>，无需手动传递。</li>
+    </ul>
+  </section>
+
+  <section id="client">
+    <h2>客户端 API（前台）</h2>
+
+    <h3>认证 / 会话</h3>
+    <details>
+      <summary>POST /api/auth/register · 注册</summary>
+      <p>创建新用户，返回 access_token 并设置 refresh_token Cookie。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>email</td><td>Body(JSON)</td><td>是</td><td>注册邮箱</td></tr>
+          <tr><td>password</td><td>Body</td><td>是</td><td>密码</td></tr>
+          <tr><td>password_confirm</td><td>Body</td><td>是</td><td>二次确认密码</td></tr>
+          <tr><td>verification_code</td><td>Body</td><td>是</td><td>邮箱验证码</td></tr>
+          <tr><td>X-Device-Id</td><td>Header</td><td>否</td><td>设备唯一标识</td></tr>
+          <tr><td>X-Device-Type</td><td>Header</td><td>否</td><td>设备类型（web/mobile_web）</td></tr>
+          <tr><td>X-Device-Name</td><td>Header</td><td>否</td><td>设备名，自动截断 40 字符</td></tr>
+        </tbody>
+      </table>
+      <div class="resp-note">Set-Cookie: refresh_token=...; HttpOnly; Path=/</div>
+      <pre><code>{
+  "code": 201,
+  "message": "注册成功",
+  "data": { "access_token": "string" }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/auth/login · 登录</summary>
+      <p>支持密码或快捷登录，返回 access_token 并设置 refresh_token Cookie。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>email</td><td>Body</td><td>是</td><td>账号邮箱</td></tr>
+          <tr><td>mode</td><td>Body</td><td>是</td><td><code>password</code> 或 <code>quick</code></td></tr>
+          <tr><td>password</td><td>Body</td><td>条件</td><td>mode= password 时必填</td></tr>
+          <tr><td>verification_code</td><td>Body</td><td>条件</td><td>mode= quick 时必填</td></tr>
+          <tr><td>X-Device-Id / X-Device-Type / X-Device-Name</td><td>Headers</td><td>否</td><td>记录登录设备信息</td></tr>
+        </tbody>
+      </table>
+      <div class="resp-note">Set-Cookie: refresh_token=...; HttpOnly; Path=/</div>
+      <pre><code>{
+  "code": 200,
+  "message": "登录成功",
+  "data": {
+    "access_token": "string",
+    "multi_login_warning": boolean
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/auth/refresh · 刷新令牌</summary>
+      <p>使用 Cookie 中的 refresh_token 获取新的 access_token，并重置 refresh_token。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>refresh_token</td><td>Cookie</td><td>是</td><td>自动从 Cookie 读取</td></tr>
+        </tbody>
+      </table>
+      <div class="resp-note">Set-Cookie: refresh_token=...; HttpOnly; Path=/</div>
+      <pre><code>{
+  "code": 200,
+  "message": "令牌刷新成功",
+  "data": { "access_token": "string" }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/auth/logout · 退出登录</summary>
+      <p>清理登录设备会话并删除 refresh_token Cookie。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>refresh_token</td><td>Cookie</td><td>否</td><td>用于定位当前会话并注销</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <div class="resp-note">Set-Cookie: refresh_token=（过期）</div>
+      <pre><code>{
+  "code": 200,
+  "message": "退出登录成功",
+  "data": { "device": { /* 当前注销的设备信息 */ } }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/send-verification-code · 发送邮箱验证码</summary>
+      <p>向邮箱发送注册/登录验证码。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>email</td><td>Body</td><td>是</td><td>收件邮箱</td></tr>
+          <tr><td>mode</td><td>Body</td><td>否</td><td><code>register</code> 或 <code>login</code></td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "验证码已发送",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/auth/devices · 登录设备列表</summary>
+      <p>查看当前账号的登录设备。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取登录设备列表成功",
+  "data": { "devices": [ { "device_id": "string", "device_type": "web", "device_name": "string", "login_time": "ISO", "ip_address": "string" } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/auth/logout-device · 注销指定设备</summary>
+      <p>让目标设备下线。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+          <tr><td>device_id</td><td>Body</td><td>是</td><td>待注销设备 ID</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "注销设备成功",
+  "data": { "device": { /* 被注销设备 */ } }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/auth/logout-other-devices · 注销其他设备</summary>
+      <p>保留当前会话，注销其它登录。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+          <tr><td>refresh_token</td><td>Cookie</td><td>是</td><td>标识当前会话</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "注销其他设备成功",
+  "data": { "devices": [ /* 剩余/已注销设备列表 */ ] }
+}</code></pre>
+    </details>
+
+    <h3>用户信息 / 账户</h3>
+    <details>
+      <summary>GET /api/user/login-user-info · 登录用户概要</summary>
+      <p>返回用户头像、昵称、会员类型等基础信息。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "userInfo": {
+      "userId": "string",
+      "avatar": "string",
+      "nikeName": "string",
+      "memberType": "string"
+    }
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/user/account-info · 账户信息</summary>
+      <p>返回账户、邮箱、生日、性别等详情。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "accountInfo": {
+      "account": "string",
+      "memberType": "string",
+      "nickName": "string|null",
+      "birthday": "ISO|null",
+      "sex": "man|woman|secret",
+      "email": "string",
+      "avatarUrl": "string|null"
+    }
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/user/upload-avatar · 上传头像</summary>
+      <p>上传头像文件并更新资料。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+          <tr><td>file</td><td>FormData(File)</td><td>是</td><td>头像图片</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "上传成功",
+  "data": { "url": "filename" }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/user/update-info · 修改基础信息</summary>
+      <p>更新昵称、性别、生日。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>nickname</td><td>Body</td><td>否</td><td>昵称</td></tr>
+          <tr><td>sex</td><td>Body</td><td>否</td><td><code>man</code>|<code>woman</code>|<code>secret</code></td></tr>
+          <tr><td>birthday</td><td>Body</td><td>否</td><td>ISO 日期字符串</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "更新成功",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/user/change-email · 修改邮箱</summary>
+      <p>通过验证码或密码验证后修改邮箱。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>type</td><td>Body</td><td>是</td><td><code>code</code> 或 <code>password</code></td></tr>
+          <tr><td>old_email</td><td>Body</td><td>条件</td><td>type=code 时必填</td></tr>
+          <tr><td>old_code</td><td>Body</td><td>条件</td><td>原邮箱验证码</td></tr>
+          <tr><td>password</td><td>Body</td><td>条件</td><td>type=password 时必填</td></tr>
+          <tr><td>new_email</td><td>Body</td><td>是</td><td>新邮箱</td></tr>
+          <tr><td>new_code</td><td>Body</td><td>是</td><td>新邮箱验证码</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "更新成功",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/user/change-password · 修改密码</summary>
+      <p>支持邮箱验证码或旧密码校验。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>type</td><td>Body</td><td>是</td><td><code>email</code> 或 <code>password</code></td></tr>
+          <tr><td>email</td><td>Body</td><td>条件</td><td>type=email 时必填</td></tr>
+          <tr><td>code</td><td>Body</td><td>条件</td><td>邮箱验证码</td></tr>
+          <tr><td>old_password</td><td>Body</td><td>条件</td><td>type=password 时必填</td></tr>
+          <tr><td>new_password</td><td>Body</td><td>是</td><td>新密码</td></tr>
+          <tr><td>confirm_password</td><td>Body</td><td>是</td><td>确认密码</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "修改密码成功",
+  "data": null
+}</code></pre>
+    </details>
+
+    <h3>地址簿</h3>
+    <details>
+      <summary>POST /api/user/add-address · 新增地址</summary>
+      <p>新增收货地址并返回地址 ID。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>provinceCode / cityCode / areaCode / streetCode</td><td>Body</td><td>是</td><td>行政区划代码</td></tr>
+          <tr><td>address</td><td>Body</td><td>是</td><td>详细地址</td></tr>
+          <tr><td>receiver</td><td>Body</td><td>是</td><td>收货人</td></tr>
+          <tr><td>phone</td><td>Body</td><td>是</td><td>联系电话</td></tr>
+          <tr><td>isDefault</td><td>Body</td><td>否</td><td>是否设为默认</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 201,
+  "message": "success",
+  "data": { "id": "string" }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>PUT /api/user/update-address/:address-id · 更新地址</summary>
+      <p>修改指定地址，可更新默认状态。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>address-id</td><td>Path</td><td>是</td><td>地址 ID</td></tr>
+          <tr><td>provinceCode / cityCode / areaCode / streetCode</td><td>Body</td><td>否</td><td>行政区划代码</td></tr>
+          <tr><td>address</td><td>Body</td><td>否</td><td>详细地址</td></tr>
+          <tr><td>receiver</td><td>Body</td><td>否</td><td>收货人</td></tr>
+          <tr><td>phone</td><td>Body</td><td>否</td><td>联系电话</td></tr>
+          <tr><td>isDefault</td><td>Body</td><td>否</td><td>是否默认</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /api/user/remove-address/:address-id · 删除地址</summary>
+      <p>删除指定地址。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>address-id</td><td>Path</td><td>是</td><td>地址 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/user/address-list · 地址列表</summary>
+      <p>返回当前用户的收货地址列表。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "list": [ { "id": "string", "address": "string", "receiver": "string", "phone": "string", "isDefault": true, "province": {...}, "city": {...}, "area": {...}, "street": {...} } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /api/user/set-default/:address-id · 设为默认地址</summary>
+      <p>将指定地址设为默认（会取消其他默认）。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>address-id</td><td>Path</td><td>是</td><td>地址 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": null
+}</code></pre>
+    </details>
+
+    <h3>购物车 / 优惠券 / 代金券</h3>
+    <details>
+      <summary>POST /api/user/add-shopping-card · 加入购物车</summary>
+      <p>将商品配置加入购物车。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>configId</td><td>Body</td><td>是</td><td>商品配置 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 201,
+  "message": "success",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /api/user/delete-shop-cards · 批量删除购物车</summary>
+      <p>删除传入的购物车项。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>card_ids</td><td>Body(JSON)</td><td>是</td><td>购物车项 ID 数组</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 201,
+  "message": "删除购物车成功",
+  "data": { "count": number }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/user/shopping-cards · 购物车列表</summary>
+      <p>返回购物车项及可选配置列表。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "cartId": "string",
+        "productId": "string",
+        "configId": "string",
+        "quantity": number,
+        "name": "string",
+        "config1": "string",
+        "config2": "string",
+        "config3": "string",
+        "salePrice": number,
+        "originalPrice": number,
+        "availableConfigs": [ { "id": "string", "config1": "...", "salePrice": number } ]
+      }
+    ]
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/user/coupon-center/claim · 领取优惠券</summary>
+      <p>从领券中心领取优惠券。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>couponId</td><td>Body</td><td>是</td><td>优惠券 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 201,
+  "message": "success",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/user/coupons · 我的优惠券</summary>
+      <p>列出当前用户已领取的优惠券。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "items": [ { "id": "string", "status": "未使用|已使用|已过期", "coupon": { "name": "...", "type": "满减|折扣", "amount": number, "discount": number, "threshold": number, "startTime": "ISO", "expireTime": "ISO" }, "useOK": boolean } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/user/vouchers · 我的代金券</summary>
+      <p>列出当前用户代金券余额。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "items": [ { "id": "string", "status": true, "getTime": "ISO", "useUpTime": "ISO|null", "usedAmount": number, "remainAmount": number, "voucher": { "title": "string", "originalAmount": number, "startTime": "ISO", "endTime": "ISO" } } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/user/coupons/:product-id · 指定商品可用券</summary>
+      <p>获取某商品可用的优惠券。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>product-id</td><td>Path</td><td>是</td><td>商品 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "ok",
+  "data": [ /* 可用优惠券列表 */ ]
+}</code></pre>
+    </details>
+
+    <h3>商品 / 优惠 / 评价</h3>
+    <details>
+      <summary>GET /api/products/product-cards/:category-code · 商品卡片列表</summary>
+      <p>按品类返回在售商品卡片（仅库存>0）。JWT 可选。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>category-code</td><td>Path</td><td>是</td><td>品类编码（LAPTOP/DESKTOP/...）</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token（传入可返回领券状态）</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "items": [ /* ProductCardItem 列表：含 shelfProduct、product、minPriceConfig、coupons */ ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/new-product-cards · 新品推荐</summary>
+      <p>按分组返回新品卡片与轮播。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token（可带上用户优惠信息）</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "carouselItems": [ { "image": "string", "product": {...} } ], "items": [ { "title": "string", "items": [/* ProductCardItem */] } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/index-product-cards · 首页推荐</summary>
+      <p>首页商品卡片与轮播。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "carouselItems": [...], "items": [...] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/seckill-product-cards · 秒杀商品列表</summary>
+      <p>返回秒杀专区商品卡片，包含轮次与库存信息。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": [ /* 秒杀商品卡片 */ ]
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/search-product-cards · 商品搜索</summary>
+      <p>支持排序、价格区间、库存、标签筛选、关键词搜索。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>sortBy</td><td>Query</td><td>否</td><td>recommend | new | comment | price</td></tr>
+          <tr><td>priceOrder</td><td>Query</td><td>否</td><td>asc | desc</td></tr>
+          <tr><td>commentOrder</td><td>Query</td><td>否</td><td>asc | desc</td></tr>
+          <tr><td>inStock</td><td>Query</td><td>否</td><td>true/false，仅显示有库存</td></tr>
+          <tr><td>priceRange[min], priceRange[max]</td><td>Query</td><td>否</td><td>价格区间</td></tr>
+          <tr><td>tabFilters[self|discountCoupon|custom|installment|tradeIn]</td><td>Query</td><td>否</td><td>布尔筛选</td></tr>
+          <tr><td>keyword</td><td>Query</td><td>否</td><td>搜索关键词</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { /* 搜索结果 ProductCard 列表 */ }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/:productId/evaluations · 商品评价列表</summary>
+      <p>获取指定商品的用户评价。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>productId</td><td>Path</td><td>是</td><td>商品 ID</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { "items": [ { "id": "string", "star": 4.5, "content": "string", "images": [], "user": { "id": "...", "nickname": "...", "avatar": "..." }, "likeNum": number, "createdAt": "YYYY-MM-DD HH:mm:ss" } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/evaluations/:evaluationId/like · 点赞评价</summary>
+      <p>为评价点赞。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>evaluationId</td><td>Path</td><td>是</td><td>评价 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": { /* 更新后的评价记录 */ }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/shelf-products/:id/detail · 普通商品详情</summary>
+      <p>获取货架商品详情，含配置、库存、可用优惠券、是否已加入购物车。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>Path</td><td>是</td><td>货架商品 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token（可用于标记收藏/购物车状态）</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "shelf": { "id": "string", "isSelfOperated": true, "installment": 0, ... },
+    "product": { "id": "string", "name": "string", ... },
+    "brand": { "id": "string", "name": "string" },
+    "banners": [ { "image": "string", "sort": 1 } ],
+    "appearances": [ { "image": "string" } ],
+    "configs": [ { "id": "string", "config1": "...", "salePrice": number, "status": "ON" } ],
+    "shelfItems": [ { "configId": "string", "shelfNum": number, "lockNum": number } ],
+    "coupons": [ /* 可用优惠券 */ ],
+    "tags": [ /* 标签 */ ],
+    "hasShopCart": true
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/seckill-products/:seckillId/:id/detail · 秒杀商品详情</summary>
+      <p>返回秒杀轮次与商品配置库存、价格。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>seckillId</td><td>Path</td><td>是</td><td>秒杀轮次 ID</td></tr>
+          <tr><td>id</td><td>Path</td><td>是</td><td>秒杀商品 ID</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "seckill": { "id": "string", "type": "REDUCE|DISCOUNT", "reduceAmount": number, "discount": number },
+    "round": { "id": "string", "title": "string", "startTime": "ISO", "endTime": "ISO", "status": "ONGOING" },
+    "product": { /* ProductVO */ },
+    "brand": { /* BrandVO */ },
+    "banners": [...],
+    "appearances": [...],
+    "seckillConfigs": [ { "id": "string", "configId": "string", "shelfNum": number, "remainNum": number, "seckillPrice": number } ],
+    "tags": [ /* 标签 */ ]
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/products/coupon-center/coupons · 领券中心</summary>
+      <p>列出当前可领取的优惠券；登录后会标记已领取状态。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>否</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success",
+  "data": [ { "coupon_center_id": "string", "coupon_id": "string", "start_time": "ISO", "end_time": "ISO", "total_num": number, "limit_num": number } ]
+}</code></pre>
+    </details>
+
+    <h3>订单</h3>
+    <details>
+      <summary>POST /api/order/create · 创建订单</summary>
+      <p>支持普通/秒杀订单，自动计算金额与优惠。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>seckill</td><td>Body</td><td>是</td><td>是否秒杀订单</td></tr>
+          <tr><td>addressId</td><td>Body</td><td>是</td><td>收货地址 ID</td></tr>
+          <tr><td>items</td><td>Body</td><td>是</td><td>数组，元素含 productId, configId, quantity, seckillRoundId?</td></tr>
+          <tr><td>couponIds</td><td>Body</td><td>是</td><td>使用的优惠券 ID 列表（可为空数组）</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "订单创建成功",
+  "data": {
+    "orderId": "string",
+    "orderNo": "string",
+    "payAmount": number,
+    "actualPayAmount": number,
+    "status": "待支付",
+    "items": [ { "productId": "...", "productName": "...", "config1": "...", "quantity": 1, "price": number, "discount": number, "payAmount": number } ],
+    "createdAt": "ISO",
+    "payLimitTime": "ISO"
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/order/cancel · 取消订单</summary>
+      <p>取消未完成订单。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>Body</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "订单取消成功",
+  "data": null
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/order/pay/voucher · 代金券支付</summary>
+      <p>使用代金券抵扣订单金额。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>Body</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>voucherId</td><td>Body</td><td>是</td><td>代金券 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "success|错误信息",
+  "data": { "success": true, "paidAmount": number, "remainAmount": number }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/order/payment/status · 查询支付状态</summary>
+      <p>查询订单当前支付状态。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>Query</td><td>是</td><td>订单 ID（接口是 POST，但使用 query 参数）</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取成功",
+  "data": { /* 支付状态对象，例如 { status, payType, payTime } */ }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/order/list · 我的订单（精简）</summary>
+      <p>返回简化订单列表（用于概览）。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取成功",
+  "data": { "orders": [ { "id": "string", "orderNo": "string", "status": "待支付", "payAmount": number, "actualPayAmount": number, "items": [/* 简要商品 */] } ] }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/order/list/query · 我的订单（带筛选）</summary>
+      <p>按状态/日期/关键词筛选订单。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>Query</td><td>否</td><td>订单状态</td></tr>
+          <tr><td>startDate / endDate</td><td>Query</td><td>否</td><td>创建时间范围</td></tr>
+          <tr><td>keyword</td><td>Query</td><td>否</td><td>关键词</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取成功",
+  "data": {
+    "total": number,
+    "data": [ { "order_id": "string", "order_no": "string", "status": "待支付|...", "payAmount": number, "actualPayAmount": number, "payTime": "ISO|null", "items": [ { "id": "string", "productId": "string", "productName": "string", "quantity": number, "priceSnapshot": number } ] } ]
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/order/order-detail/:id · 订单详情</summary>
+      <p>查看订单商品、地址、券、物流等详细信息。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>Path</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取成功",
+  "data": {
+    "id": "string",
+    "orderNo": "string",
+    "status": "string",
+    "payAmount": number,
+    "actualPayAmount": number,
+    "payType": "string|null",
+    "payTime": "ISO|null",
+    "address": { "province": "...", "receiver": "...", "phone": "..." },
+    "items": [ { "product_id": "string", "config_id": "string", "quantity": number, "config1": "...", "imageSnapshot": "..." } ],
+    "coupons": [ { "id": "string", "name": "string", "type": "string", "amount": number, "discount": number } ],
+    "vouchers": [ { "id": "string", "title": "string", "usedAmount": number, "useTime": "ISO" } ]
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/order/stats · 订单统计</summary>
+      <p>获取待支付/待发货/待收货/完成/取消等数量与总金额。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取成功",
+  "data": {
+    "totalCount": number,
+    "pendingPaymentCount": number,
+    "pendingShipmentCount": number,
+    "pendingReceiptCount": number,
+    "completedCount": number,
+    "cancelledCount": number,
+    "totalAmount": number
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /api/order/delete-order/:orderId · 删除订单</summary>
+      <p>逻辑删除订单记录。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>Path</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "删除成功",
+  "data": number  // 删除条数
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/order/confirm-receipt · 确认收货</summary>
+      <p>将订单状态置为已收货。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>Body</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "确认收货成功",
+  "data": { "orderId": "string", "status": "已收货", "receiveTime": "ISO" }
+}</code></pre>
+    </details>
+
+    <h3>售后 / 投诉 / 评论</h3>
+    <details>
+      <summary>POST /api/after-sale/apply · 提交售后</summary>
+      <p>支持退货/换货/维修，可附带图片。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>FormData</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>orderItemId</td><td>FormData</td><td>是</td><td>订单项 ID</td></tr>
+          <tr><td>type</td><td>FormData</td><td>是</td><td>售后类型（退货/换货/维修）</td></tr>
+          <tr><td>reason</td><td>FormData</td><td>是</td><td>原因</td></tr>
+          <tr><td>remark</td><td>FormData</td><td>否</td><td>补充说明</td></tr>
+          <tr><td>images</td><td>FormData(File[])</td><td>否</td><td>凭证图片，字段名 images，可多张</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "售后申请成功",
+  "data": {
+    "afterSale": { "id": "string", "afterSaleNo": "string", "type": "退货", "status": "申请中", ... },
+    "uploadedFiles": [ { "originalName": "xxx.jpg", "fileName": "uuid.jpg", "url": "/images/lenovo/uuid.jpg", "size": number, "type": "image/jpeg" } ]
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>PUT /api/after-sale/cancel/:id · 取消售后</summary>
+      <p>撤回售后申请。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>Path</td><td>是</td><td>售后 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "售后取消成功",
+  "data": { /* AfterSaleRecord */ }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/after-sale/complaint · 售后投诉</summary>
+      <p>对完成的售后发起投诉，可上传图片。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>afterSaleId</td><td>FormData</td><td>是</td><td>售后 ID</td></tr>
+          <tr><td>content</td><td>FormData</td><td>是</td><td>投诉内容</td></tr>
+          <tr><td>images</td><td>FormData(File[])</td><td>否</td><td>凭证图片</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "投诉提交成功",
+  "data": {
+    /* 投诉记录 + uploadedFiles */
+  }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/after-sale/evaluation · 订单评价</summary>
+      <p>对完成的订单商品评价，可上传图片。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>productId</td><td>FormData</td><td>是</td><td>商品 ID</td></tr>
+          <tr><td>configId</td><td>FormData</td><td>是</td><td>配置 ID</td></tr>
+          <tr><td>star</td><td>FormData</td><td>是</td><td>评分（数字）</td></tr>
+          <tr><td>content</td><td>FormData</td><td>否</td><td>评价内容</td></tr>
+          <tr><td>images</td><td>FormData(File[])</td><td>否</td><td>图片</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "评价提交成功",
+  "data": { /* EvaluationBasic + uploadedFiles */ }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /api/after-sale/evaluation/:id · 删除评价</summary>
+      <p>用户删除自己的评价。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>Path</td><td>是</td><td>评价 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "评价删除成功", "data": { /* 删除结果 */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /api/after-sale/complaint/:id · 删除投诉</summary>
+      <p>用户删除自己的投诉。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>Path</td><td>是</td><td>投诉 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "投诉删除成功", "data": { /* 删除结果 */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /api/after-sale/comment · 订单吐槽</summary>
+      <p>对订单整体吐槽/反馈，可附图。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>orderId</td><td>FormData</td><td>是</td><td>订单 ID</td></tr>
+          <tr><td>orderItemId</td><td>FormData</td><td>是</td><td>订单项 ID</td></tr>
+          <tr><td>content</td><td>FormData</td><td>是</td><td>吐槽内容</td></tr>
+          <tr><td>images</td><td>FormData(File[])</td><td>否</td><td>图片</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "吐槽提交成功",
+  "data": { /* CommentBasic + uploadedFiles */ }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/after-sale/evaluations · 我的评价列表</summary>
+      <p>按状态/订单/商品过滤评价。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>Query</td><td>否</td><td>评价状态</td></tr>
+          <tr><td>orderId</td><td>Query</td><td>否</td><td>订单 ID</td></tr>
+          <tr><td>productId</td><td>Query</td><td>否</td><td>商品 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "获取评价列表成功", "data": [ /* EvaluationDetail[] */ ] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/after-sale/comments · 吐槽列表</summary>
+      <p>获取用户提交的吐槽记录。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>Query</td><td>否</td><td>状态过滤</td></tr>
+          <tr><td>orderId</td><td>Query</td><td>否</td><td>订单 ID</td></tr>
+          <tr><td>productId</td><td>Query</td><td>否</td><td>商品 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "获取吐槽列表成功", "data": [ /* CommentDetail[] */ ] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/after-sale/after-sales · 售后列表</summary>
+      <p>查看本人提交的售后记录。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>Query</td><td>否</td><td>售后状态</td></tr>
+          <tr><td>orderId</td><td>Query</td><td>否</td><td>订单 ID</td></tr>
+          <tr><td>productId</td><td>Query</td><td>否</td><td>商品 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "获取售后列表成功", "data": [ /* AfterSaleListItem[] */ ] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/after-sale/complaints · 投诉列表</summary>
+      <p>查看本人投诉记录。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>Query</td><td>否</td><td>投诉状态</td></tr>
+          <tr><td>orderId</td><td>Query</td><td>否</td><td>订单 ID</td></tr>
+          <tr><td>productId</td><td>Query</td><td>否</td><td>商品 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "获取投诉列表成功", "data": [ /* ComplaintDetail[] */ ] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /api/after-sale/after-sales/:id · 售后详情</summary>
+      <p>查看售后单的订单、商品、物流、投诉记录等。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>Path</td><td>是</td><td>售后 ID</td></tr>
+          <tr><td>Authorization</td><td>Header</td><td>是</td><td>Bearer access_token</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{
+  "code": 200,
+  "message": "获取售后详情成功",
+  "data": { /* AfterSaleDetail，含订单、物流、图片、投诉 */ }
+}</code></pre>
+    </details>
+  </section>
+
+  <section id="admin">
+    <h2>管理后台 API</h2>
+    <p>除 <code>/admin/login</code> 外均需 Cookie <code>admin_session</code>。身份权限控制按模块：</p>
+    <ul>
+      <li>商品/库存/货架：<code>SUPER_ADMIN</code>、<code>PRODUCT_MANAGER</code>、<code>WAREHOUSE_MANAGER</code></li>
+      <li>营销：<code>SUPER_ADMIN</code>、<code>SYSTEM_ADMIN</code>、<code>MARKETING</code></li>
+      <li>订单/售后：<code>SUPER_ADMIN</code>、<code>ORDER_MANAGER</code>、<code>AFTER_SALES</code>、<code>SYSTEM_ADMIN</code></li>
+      <li>客服：<code>SUPER_ADMIN</code>、<code>SYSTEM_ADMIN</code>、<code>CUSTOMER_SERVICE</code></li>
+    </ul>
+
+    <h3>登录 / 账号</h3>
+    <details>
+      <summary>POST /admin/login · 管理员登录</summary>
+      <p>校验账号密码，记录设备并下发 <code>admin_session</code> Cookie（2 小时）。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>account</td><td>Body</td><td>是</td><td>管理员账号</td></tr>
+          <tr><td>password</td><td>Body</td><td>是</td><td>密码</td></tr>
+          <tr><td>X-Device-Type</td><td>Header</td><td>否</td><td>设备类型</td></tr>
+          <tr><td>X-Device-Name</td><td>Header</td><td>否</td><td>设备名（截断 40 字）</td></tr>
+        </tbody>
+      </table>
+      <div class="resp-note">Set-Cookie: admin_session=...; HttpOnly; Path=/</div>
+      <pre><code>{
+  "code": 200,
+  "message": "登录成功",
+  "data": { "admin_id": "string", "name": "string", "nickname": "string", "account": "string", "avatar": "string|null", "email": "string|null" }
+}</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/logout · 管理员退出</summary>
+      <p>删除会话并清空 admin_session Cookie。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td>管理员会话</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "退出登录成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/permissions · 当前权限</summary>
+      <p>返回管理员权限、身份、可操作品类等。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td>管理员会话</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "获取权限信息成功", "data": { "permissions": [...], "identities": [...], "categories": [...] } }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/account/profile · 个人资料</summary>
+      <p>查看管理员个人信息、身份、权限、品类。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td>管理员会话</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "success", "data": AdminProfileResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/account/profile · 修改资料</summary>
+      <p>支持 JSON 或 multipart，头像通过文件 <code>images</code> 字段。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>name / nickname / email / gender / avatar</td><td>Body 或 FormData</td><td>否</td><td>更新项</td></tr>
+          <tr><td>images</td><td>FormData(File)</td><td>否</td><td>新头像，字段名 images</td></tr>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td>管理员会话</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": AdminProfileResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/account/password · 修改密码</summary>
+      <p>校验原密码后重置新密码。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>old_password</td><td>Body</td><td>是</td><td>原密码</td></tr>
+          <tr><td>new_password</td><td>Body</td><td>是</td><td>新密码</td></tr>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td>管理员会话</td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "密码修改成功", "data": null }</code></pre>
+    </details>
+
+    <h3>系统管理（账号 / 权限）</h3>
+    <details>
+      <summary>GET /admin/system/users · 用户列表</summary>
+      <p>需要超级/系统管理员；返回前台用户信息。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "success", "data": UserListItem[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/system/admins · 管理员列表</summary>
+      <p>查看所有管理员及身份绑定。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": AdminListItem[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/system/admins · 新建管理员</summary>
+      <p>创建账号并可绑定身份、品类。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>account / password / name</td><td>Body</td><td>是</td><td>基础信息</td></tr>
+          <tr><td>nickname / email / gender</td><td>Body</td><td>否</td><td></td></tr>
+          <tr><td>identity_ids</td><td>Body</td><td>否</td><td>身份 ID 数组</td></tr>
+          <tr><td>category_ids</td><td>Body</td><td>否</td><td>可管理品类 ID 数组</td></tr>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": { /* 新管理员信息 */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/system/identities · 身份与权限</summary>
+      <p>列出所有身份及其权限。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": IdentityWithPermissions[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/system/permissions · 权限菜单</summary>
+      <p>返回权限树/菜单。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": PermissionMenuItem[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/system/admins/:admin_id/identities · 绑定身份</summary>
+      <p>为管理员绑定身份（可选过期时间）。</p>
+      <table>
+        <thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>admin_id</td><td>Path</td><td>是</td><td>管理员 ID</td></tr>
+          <tr><td>identity_id</td><td>Body</td><td>是</td><td>身份 ID</td></tr>
+          <tr><td>expire_time</td><td>Body</td><td>否</td><td>到期时间(ISO/null)</td></tr>
+          <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+        </tbody>
+      </table>
+      <pre><code>{ "code": 200, "message": "绑定成功", "data": { "admin_identity_id": "string" } }</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /admin/system/admins/:admin_id/identities/:identity_id · 解绑身份</summary>
+      <p>移除管理员的某个身份。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_id, identity_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "解绑成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/system/admins/online · 在线管理员</summary>
+      <p>查看当前在线的管理员会话。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": [ /* 在线管理员 */ ] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/system/admins/:admin_id/logout · 强制下线</summary>
+      <p>让目标管理员强制退出。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "已下线", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/system/admins/:admin_id/disable · 禁用账号</summary>
+      <p>禁用目标管理员。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "已禁用", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/system/admins/:admin_id/identities/:identity_id/expire · 更新身份有效期</summary>
+      <p>调整身份过期时间。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_id, identity_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>expire_time</td><td>Body</td><td>否</td><td>ISO 或 null</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/system/identities/:identity_id/status · 更新身份状态</summary>
+      <p>启用/停用身份。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>identity_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>status</td><td>Body</td><td>是</td><td>IdentityStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/system/admins/:admin_id/reset-password · 重置管理员密码</summary>
+      <p>直接设置新密码。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>new_password</td><td>Body</td><td>是</td><td>新密码</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "重置成功", "data": null }</code></pre>
+    </details>
+
+    <h3>品牌 / 商品 / 配置 / 库存</h3>
+    <details>
+      <summary>GET /admin/brands · 品牌列表</summary>
+      <p>可按状态筛选。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>status</td><td>Query</td><td>否</td><td>BrandStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": BrandResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/brands · 新增品牌</summary>
+      <p>支持上传品牌 logo（字段 images）。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>name, code</td><td>Body/FormData</td><td>是</td><td></td></tr>
+        <tr><td>description, status</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>品牌 logo</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": BrandResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/brands/:brand_id · 更新品牌</summary>
+      <p>可更新名称、编码、描述、状态、logo。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>brand_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>name/code/description/status</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>新 logo</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/categories · 类目列表</summary>
+      <p>按状态筛选。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>status</td><td>Query</td><td>否</td><td>CategoryStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": CategoryResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/products · 新建商品</summary>
+      <p>支持上传主图（字段 images），需要具备对应品类权限。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>brand_id, category_id, name</td><td>Body/FormData</td><td>是</td><td></td></tr>
+        <tr><td>sub_title, description</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>主图</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": ProductListItem }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/products/:product_id · 更新商品</summary>
+      <p>修改品牌、类目、名称、文案、主图、状态等。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>brand_id/category_id/name/sub_title/description/status</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>新主图</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/products · 商品列表</summary>
+      <p>可按类目、品牌、状态过滤。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>category_id, brand_id, status</td><td>Query</td><td>否</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ProductListItem[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/products/:product_id · 商品详情</summary>
+      <p>包含标签、配置、轮播、外观等。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ProductDetailResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/products/:product_id/status · 更新商品状态</summary>
+      <p>更新商品上下架/删除状态。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>status</td><td>Body</td><td>是</td><td>ProductStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/tags · 新建标签</summary>
+      <p>创建商品标签，可设置优先级、备注、状态。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>name</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>priority/status/remark</td><td>Body</td><td>否</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": TagResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/tags/:tag_id · 更新标签</summary>
+      <p>修改名称、优先级、状态、备注。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>tag_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>name/priority/status/remark</td><td>Body</td><td>否</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /admin/tags/:tag_id · 删除标签</summary>
+      <p>删除标签记录。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>tag_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "删除成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/tags · 标签列表</summary>
+      <p>按状态筛选标签。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>status</td><td>Query</td><td>否</td><td>TagStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": TagResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/product-tags · 绑定商品标签</summary>
+      <p>为商品添加标签关联。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>product_id, tag_id</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "绑定成功", "data": { /* 关联信息 */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/product-tags/unbind · 解绑商品标签</summary>
+      <p>移除商品与标签的关联。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>product_id, tag_id</td><td>Body</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "解绑成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/products/:product_id/configs · 新增商品配置</summary>
+      <p>为商品添加配置项，可上传配置图片。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>config1, config2</td><td>Body/FormData</td><td>是</td><td>配置名</td></tr>
+        <tr><td>config3</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>sale_price, original_price</td><td>Body/FormData</td><td>是</td><td>价格</td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>配置图片</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "新增成功", "data": ProductConfigResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/configs/:config_id · 更新商品配置</summary>
+      <p>修改配置内容、价格、图片、状态。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>config_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>config1/2/3, sale_price, original_price, status</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>配置图</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/products/:product_id/configs · 商品配置列表</summary>
+      <p>列出商品下所有配置。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ProductConfigResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/configs/:config_id · 配置详情</summary>
+      <p>查看配置及库存信息。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>config_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ProductConfigResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/products/stats · 商品统计</summary>
+      <p>返回商品总数、正常、下架、删除数量。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ProductStatsResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/stocks · 库存列表</summary>
+      <p>查看所有配置的库存、预警、冻结数量。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": StockResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/stocks/:config_id · 更新库存</summary>
+      <p>调整库存数与预警数。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>config_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>stock_num</td><td>Body</td><td>否</td><td>库存数量</td></tr>
+        <tr><td>warn_num</td><td>Body</td><td>否</td><td>预警值</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/configs/:config_id/status · 更新配置状态</summary>
+      <p>启用/停用指定配置。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>config_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>status</td><td>Body</td><td>是</td><td>ProductConfigStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/products/:product_id/appearances · 新增外观图</summary>
+      <p>上传商品外观图片（字段 images）。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>images</td><td>FormData(File)</td><td>是</td><td>外观图</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "新增成功", "data": { /* 新外观图 */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/appearances/:appearance_id · 更新外观图</summary>
+      <p>替换外观图片。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>appearance_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>images</td><td>FormData(File)</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/products/:product_id/banners · 新增轮播图</summary>
+      <p>添加商品轮播图，可带排序。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>product_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>sort</td><td>Body/FormData</td><td>否</td><td>排序，默认0</td></tr>
+        <tr><td>images</td><td>FormData(File)</td><td>否</td><td>banner 图片</td></tr>
+        <tr><td>image</td><td>Body</td><td>否</td><td>已上传文件名（无文件时）</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "新增成功", "data": { /* banner */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/banners/:banner_id · 更新轮播图</summary>
+      <p>修改 banner 图或排序。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>banner_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>sort</td><td>Body/FormData</td><td>否</td><td></td></tr><tr><td>images</td><td>FormData(File)</td><td>否</td><td>新图片</td></tr><tr><td>image</td><td>Body</td><td>否</td><td>已有文件名</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <h3>货架 / 上架管理</h3>
+    <details>
+      <summary>GET /admin/shelf/products · 货架商品列表</summary>
+      <p>按类目/状态筛选。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>category_id, status</td><td>Query</td><td>否</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ShelfProductResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/shelf/products · 创建货架商品</summary>
+      <p>将商品加入某品类货架。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>product_id, category_id</td><td>Body</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": ShelfProductResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/shelf/products/:shelf_product_id/flags · 设置货架标记</summary>
+      <p>配置自营/可定制/分期期数。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>shelf_product_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>is_self_operated, is_customizable, installment</td><td>Body</td><td>否</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/shelf/items · 新增货架配置项</summary>
+      <p>绑定具体配置并设置上架数量。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>shelf_product_id, config_id, shelf_num</td><td>Body</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "新增成功", "data": ShelfProductItemResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/shelf/items/:shelf_product_item_id · 更新货架数量</summary>
+      <p>调整上架数量或锁定数量。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>shelf_product_item_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>shelf_num, lock_num</td><td>Body</td><td>否</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>DELETE /admin/shelf/items/:shelf_product_item_id · 移除货架配置</summary>
+      <p>删除货架上的配置项。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>shelf_product_item_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "移除成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/shelf/products/:shelf_product_id/carousel · 设置货架轮播</summary>
+      <p>控制首页/货架轮播图及是否展示。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>shelf_product_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>is_carousel</td><td>Body/FormData</td><td>是</td><td>是否轮播</td></tr>
+        <tr><td>carousel_image</td><td>Body/FormData/File</td><td>否</td><td>轮播图（字段 images 或已上传文件名）</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/shelf/stats · 货架统计</summary>
+      <p>按品类统计货架商品数量。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ShelfStatsResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/shelf/categories/:category_id/products · 指定类目货架</summary>
+      <p>查看某品类下的货架商品。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>category_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ShelfProductResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/shelf/home-push · 设置首页推荐</summary>
+      <p>将货架商品设置为首页推荐，支持轮播图及有效期。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>shelf_product_id</td><td>Body/FormData</td><td>是</td><td></td></tr>
+        <tr><td>start_time, end_time</td><td>Body/FormData</td><td>是</td><td>时间范围</td></tr>
+        <tr><td>is_carousel</td><td>Body/FormData</td><td>否</td><td>是否轮播</td></tr>
+        <tr><td>carousel_image</td><td>Body/FormData/File</td><td>否</td><td>轮播图</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": HomePushResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/shelf/new-push · 设置新品推荐</summary>
+      <p>配置新品区推送，与首页推荐参数一致。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>shelf_product_id</td><td>Body/FormData</td><td>是</td><td></td></tr>
+        <tr><td>start_time, end_time</td><td>Body/FormData</td><td>是</td><td></td></tr>
+        <tr><td>is_carousel</td><td>Body/FormData</td><td>否</td><td></td></tr>
+        <tr><td>carousel_image</td><td>Body/FormData/File</td><td>否</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": NewPushResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/shelf/home-push · 首页推荐列表</summary>
+      <p>列出当前首页推荐配置。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": HomePushResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/shelf/new-push · 新品推荐列表</summary>
+      <p>列出新品推荐配置。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": NewPushResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>PATCH /admin/shelf/products/:shelf_product_id/status · 更新货架状态</summary>
+      <p>上架/下架货架商品。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>shelf_product_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>status</td><td>Body</td><td>是</td><td>ShelfProductStatus</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "更新成功", "data": null }</code></pre>
+    </details>
+
+    <h3>营销</h3>
+    <details>
+      <summary>GET /admin/marketing/coupons · 优惠券列表</summary>
+      <p>列出所有优惠券及中心配置。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": CouponResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/coupon-center · 领券中心配置</summary>
+      <p>查看当前上架的领券中心券。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": CouponCenterResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/coupons/:coupon_id · 优惠券详情</summary>
+      <p>查看优惠券配置、关联商品。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>coupon_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": CouponResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/coupons · 新建优惠券</summary>
+      <p>创建满减/折扣券。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>name, type, start_time, expire_time</td><td>Body</td><td>是</td><td>基础必填</td></tr>
+        <tr><td>amount/discount/threshold/condition/scope/is_stackable</td><td>Body</td><td>否</td><td>按券类型选择</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": CouponResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/coupon-center · 设置领券中心</summary>
+      <p>将券投放到领券中心，设置数量与限领。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>coupon_id</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>start_time, end_time</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>total_num, limit_num</td><td>Body</td><td>是</td><td>总投放量 / 单用户限领</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": CouponCenterResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/coupons/:coupon_id/users · 优惠券用户</summary>
+      <p>查看领取/使用情况。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>coupon_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": CouponUserResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/coupons/:coupon_id/stats · 优惠券统计</summary>
+      <p>统计已用/未用数量。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>coupon_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": CouponStatsResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/vouchers · 代金券列表</summary>
+      <p>查看所有代金券。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": VoucherResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/vouchers · 新建代金券</summary>
+      <p>创建指定面额的代金券。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>title, original_amount, start_time, end_time</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>description, remark</td><td>Body</td><td>否</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": VoucherResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/vouchers/:voucher_id/users · 代金券用户</summary>
+      <p>查看领取与余额。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>voucher_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": VoucherUserResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/vouchers/:voucher_id/issue · 发放代金券</summary>
+      <p>批量发券给指定用户。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>voucher_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>user_ids</td><td>Body</td><td>是</td><td>用户 ID 数组</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "发放成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/marketing/seckill-rounds · 秒杀轮次列表</summary>
+      <p>查看所有秒杀轮次。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": SeckillRoundResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/seckill-rounds · 创建秒杀轮次</summary>
+      <p>设置时间、状态、备注。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>title, start_time, end_time</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>status, remark</td><td>Body</td><td>否</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "创建成功", "data": SeckillRoundResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/seckill-products · 设置秒杀商品</summary>
+      <p>将商品加入秒杀轮次，支持直减/折扣。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>round_id, product_id, type</td><td>Body</td><td>是</td><td>type=REDUCE/ DISCOUNT</td></tr>
+        <tr><td>reduce_amount, discount</td><td>Body</td><td>条件</td><td>按 type 填写</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": { /* 秒杀商品 */ } }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/marketing/seckill-configs · 设置秒杀配置</summary>
+      <p>为秒杀商品添加配置及秒杀价。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>seckill_product_id, config_id, shelf_num, seckill_price</td><td>Body</td><td>是</td><td></td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": { /* 秒杀配置 */ } }</code></pre>
+    </details>
+
+    <h3>订单 / 售后（后台）</h3>
+    <details>
+      <summary>GET /admin/orders · 订单列表</summary>
+      <p>后台查看所有订单（含用户、金额、明细）。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": OrderListItem[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/orders/:order_id · 订单详情</summary>
+      <p>含收货信息、物流号、商品明细。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>order_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": OrderDetailResponse }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/orders/:order_id/cancel · 取消已支付订单</summary>
+      <p>后台取消订单，释放库存。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>order_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "取消成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/orders/:order_id/pending-ship · 标记待发货</summary>
+      <p>将订单状态置为待发货。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>order_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/orders/:order_id/ship · 发货</summary>
+      <p>填写物流单号并发货。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>order_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>logistics_no</td><td>Body</td><td>是</td><td>物流单号</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "发货成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/orders/:order_id/pending-receive · 标记待收货</summary>
+      <p>调整订单状态为待收货。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>order_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "设置成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/after-sales · 售后列表</summary>
+      <p>查看所有用户售后申请。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": AfterSaleResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/after-sales/:after_sale_id/handle · 处理售后</summary>
+      <p>根据状态同意/拒绝/完成售后，可写备注。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>after_sale_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>status</td><td>Body</td><td>是</td><td>AfterSaleStatus</td></tr>
+        <tr><td>remark</td><td>Body</td><td>否</td><td>处理备注/拒绝原因</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "处理成功", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/complaints · 投诉列表</summary>
+      <p>查看售后投诉。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ComplaintResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/complaints/:complaint_id/handle · 处理投诉</summary>
+      <p>录入投诉处理结果。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody>
+        <tr><td>complaint_id</td><td>Path</td><td>是</td><td></td></tr>
+        <tr><td>result</td><td>Body</td><td>是</td><td>处理结果</td></tr>
+        <tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr>
+      </tbody></table>
+      <pre><code>{ "code": 200, "message": "处理成功", "data": null }</code></pre>
+    </details>
+
+    <h3>客服</h3>
+    <details>
+      <summary>GET /admin/service/sessions · 客服会话列表</summary>
+      <p>查看所有客服会话状态。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ServiceSessionResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>GET /admin/service/sessions/:room_id/messages · 会话消息</summary>
+      <p>查看指定会话的消息列表。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>room_id</td><td>Path</td><td>是</td><td>会话房间 ID</td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "success", "data": ServiceMessageResponse[] }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/service/messages/:message_id/read · 标记已读</summary>
+      <p>将消息状态设为已读。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>message_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "已标记已读", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/service/sessions/:room_id/end · 结束会话</summary>
+      <p>终止客服会话。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>room_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "会话已结束", "data": null }</code></pre>
+    </details>
+
+    <details>
+      <summary>POST /admin/service/messages/:message_id/withdraw · 撤回消息</summary>
+      <p>撤回指定客服消息。</p>
+      <table><thead><tr><th>参数</th><th>来源</th><th>必填</th><th>说明</th></tr></thead><tbody><tr><td>message_id</td><td>Path</td><td>是</td><td></td></tr><tr><td>admin_session</td><td>Cookie</td><td>是</td><td></td></tr></tbody></table>
+      <pre><code>{ "code": 200, "message": "撤回成功", "data": null }</code></pre>
+    </details>
+  </section>
+</body>
+</html>

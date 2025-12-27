@@ -20,6 +20,7 @@ export interface UserCouponItem {
     expireTime: Date;       // 不做日期格式化
     isStackable: boolean;
   };
+  useOK?:boolean;
 }
 
 export interface UserCouponListResponse {

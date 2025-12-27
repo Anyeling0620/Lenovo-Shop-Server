@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { claimCouponService, getUserCouponsService, getUserVouchersService, listCouponCenterCouponsService } from '../../services/client/coupon-center.service';
+import { claimCouponService, getCouponsByProductService, getUserCouponsService, getUserVouchersService, listCouponCenterCouponsService } from '../../services/client/coupon-center.service';
 
 export async function getCouponCenterCouponsController(c: Context) {
   const user = c.get('user');
@@ -35,4 +35,18 @@ export async function getUserVouchersController(c: Context) {
   const userId = user?.user_id as string;
   const data = await getUserVouchersService(userId);
   return c.json({ code: 200, message: 'success', data }, 200);
+}
+
+
+export async function getUserCouponsByproductController(c:Context) {
+   const user = c.get('user');
+  const userId = user?.user_id as string;
+  const productId = c.req.param('product-id');
+  const coupons = await getCouponsByProductService(userId,productId)
+  return c.json({
+    code:200,
+    message:'ok',
+    data: coupons
+  })
+  
 }
