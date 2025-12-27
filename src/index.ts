@@ -19,6 +19,7 @@ import admin from './routes/admin/admin.routes'
 import { authAdmin } from './middleware/session.middleware'
 import order from './routes/client/order.route'
 import { afterSale } from './routes/client/after-sale.route'
+import { handle } from 'hono/vercel'
 
 dotenv.config()
 
@@ -27,6 +28,13 @@ const HOST = process.env.HOST || '0.0.0.0'
 const CORS_ORIGINS = process.env.CORS_ORIGINS
 
 const app = new Hono()
+
+if (!process.env.VERCEL) {
+  app.get('/static/*', serveStatic({ 
+    root: join(__dirname, '../public'),
+    rewriteRequestPath: (path) => path.replace(/^\/static/, '')
+  }));
+}
 
 // 静态资源服务 - 映射到根目录
 app.get('/static/*', serveStatic({ 
@@ -121,4 +129,4 @@ if (!process.env.VERCEL) {
   test();
 }
 
-export default app
+export default handle(app);
