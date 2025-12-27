@@ -39,6 +39,14 @@ app.get('/api/ping', (c) => {
   return c.text('Pong! Vercel is working!')
 })
 
+app.get('/api/ping-test', (c) => {
+  return c.json({ 
+    status: 'ok', 
+    time: new Date().toISOString(),
+    message: '如果看到这条消息，说明 Vercel 没挂！' 
+  })
+})
+
 // 静态资源服务 - 映射到根目录
 app.get('/static/*', serveStatic({ 
   root: join(__dirname, '../public'),
@@ -105,9 +113,11 @@ app.onError((err, c) => {
   })
 })
 
+/*
 showRoutes(app, {  // 显示路由
   verbose: true,
 })
+*/
 
 // 仅在非 Vercel 环境下启动服务器
 if (!process.env.VERCEL) {
