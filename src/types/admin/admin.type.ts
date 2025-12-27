@@ -7,6 +7,7 @@ export interface AdminLoginResponse {
     admin_id: string;
     name: string;
     nickname: string;
+    account: string;
     avatar: string | null;
     email: string | null;
 }
