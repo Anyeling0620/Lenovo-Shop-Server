@@ -15,11 +15,12 @@ open http://localhost:3003
 
 
 ## 运行前请先创建 .env 文件，并填入以下内容
+## DATABASE_URL的具体内容请翻群聊天
 ```
 PORT=3003
 HOST=0.0.0.0
 NODE_ENV=development
-DATABASE_URL="mysql://root:123456@localhost:3307/lenovo_shop"
+DATABASE_URL="写个中文是提示你看群聊天"
 
 ACCESS_TOKEN_SECRET="dsyctyuioktytg78654tryuhihuesretyguiy5435sdtygy8uhbvgcfrd5"
 REFRESH_TOKEN_SECRET="2345678e5dtyfg7y8ou9oljytyrydtvyg7h8ikjuytrdfyvhu"
