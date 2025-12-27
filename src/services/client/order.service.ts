@@ -620,7 +620,8 @@ export class OrderService {
             createdAt: order.createdAt,
             payTime: order.payTime || undefined,
             items: order.items.map((item) => ({
-                id: item.configId,
+                id: item.id,
+                configId:item.configId,
                 productId: item.productId,
                 productName: item.nameSnapshot,
                 config1: item.config1Snapshot,
@@ -724,7 +725,8 @@ export class OrderService {
 
             // 商品信息
             items: order.items.map((item) => ({
-                id: item.configId,
+                id: item.id,
+                configId:item.configId,
                 productId: item.productId,
                 productName: item.nameSnapshot,
                 config1: item.config1Snapshot,
@@ -848,6 +850,7 @@ export class OrderService {
             createdAt: order.createdAt,
             items: order.items.map((item) => ({
                 id: item.id,
+                configId:item.configId,
                 productId: item.productId,
                 productName: item.nameSnapshot,
                 config1: item.config1Snapshot,

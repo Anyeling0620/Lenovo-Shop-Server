@@ -160,6 +160,7 @@ export interface AfterSaleDetail {
   images: ImageInfo[];
   order: OrderInfo;
   orderItem: OrderItemInfo;
+  merchantLogisticsNo:string | null;
   complaints?: ComplaintDetail[];
 }
 

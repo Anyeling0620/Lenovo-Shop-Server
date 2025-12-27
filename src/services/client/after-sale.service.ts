@@ -17,11 +17,13 @@ import {
 } from '../../types/client/after-sale.type';
 import { db } from '../../utils/db';
 import { HTTPException } from 'hono/http-exception';
+import { log } from 'console';
 
 export class AfterSaleService {
     // 1. 申请售后
     async createAfterSale(userId: string, data: CreateAfterSaleDto): Promise<AfterSaleRecord> {
         // 验证订单是否存在且属于该用户
+        log(data.orderId,data.orderItemId)
         const order = await db.order.findFirst({
             where: {
                 id: data.orderId,
@@ -178,7 +180,7 @@ export class AfterSaleService {
                 userId,
                 productId: data.productId,
                 configId: data.configId,
-                status: EvaluationStatus.正常
+                status: EvaluationStatus.正常 || EvaluationStatus.撤回
             }
         });
 
@@ -500,6 +502,7 @@ export class AfterSaleService {
         if (query.orderId) {
             where.orderId = query.orderId;
         }
+        log(where)
 
         const afterSales = await db.afterSale.findMany({
             where,
@@ -736,7 +739,7 @@ export class AfterSaleService {
                     select: {
                         id: true,
                         image: true,
-                        createdAt: true
+                        afterSaleId:true,
                     }
                 },
                 order: {
@@ -809,7 +812,6 @@ export class AfterSaleService {
                             select: {
                                 id: true,
                                 image: true,
-                                createdAt: true
                             }
                         }
                     }
@@ -883,7 +885,6 @@ export class AfterSaleService {
                     images: complaint.images.map(img => ({
                         id: img.id,
                         image: img.image,
-                        createdAt: img.createdAt
                     })),
                     afterSale: {
                         id: complaintAfterSale.id,
@@ -933,6 +934,7 @@ export class AfterSaleService {
             orderId: afterSale.orderId,
             orderItemId: afterSale.orderItemId,
             afterSaleNo: afterSale.afterSaleNo,
+            merchantLogisticsNo:afterSale.merchantLogisticsNo,
             type: afterSale.type,
             reason: afterSale.reason,
             remark: afterSale.remark,
@@ -952,7 +954,6 @@ export class AfterSaleService {
             images: afterSale.images.map(img => ({
                 id: img.id,
                 image: img.image,
-                createdAt: img.createdAt
             })),
             order: {
                 id: afterSale.order.id,

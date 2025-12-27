@@ -61,6 +61,7 @@ export interface OrderListItem {
 
 export interface OrderItemSummary {
   id: string;
+  configId:string;
   productId: string;
   productName: string;
   config1: string;

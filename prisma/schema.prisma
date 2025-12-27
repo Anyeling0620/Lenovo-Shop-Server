@@ -928,6 +928,7 @@ model Admin {
   account     String        @unique // 账号
   password    String        // 密码
   name        String        // 姓名
+  gender      Gender      @default(secret)
   email       String?       @unique // 邮箱
   avatar      String?       // 头像
   nickname    String?       // 工作昵称

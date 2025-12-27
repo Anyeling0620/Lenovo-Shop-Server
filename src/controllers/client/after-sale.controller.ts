@@ -7,42 +7,44 @@ import {
     ListQueryDto
 } from '../../types/client/after-sale.type';
 import { AfterSaleService } from '../../services/client/after-sale.service';
-import { getUploadedFiles } from '../../middleware/upload.middleware';
+import { getFormBody, getUploadedFiles } from '../../middleware/upload.middleware';
 
 const afterSaleService = new AfterSaleService();
 
-
-
-function getFilesFromRequest(req: any): Express.Multer.File[] {
-    if (req.files && Array.isArray(req.files)) {
-        return req.files;
-    }
-    return [];
-}
-
 export class AfterSaleController {
     /**
-    * 申请售后
-    */
+     * 申请售后
+     */
     async createAfterSale(c: Context) {
-        const body = await c.req.parseBody() as any;
         const user = c.get('user');
         const userId = user?.user_id;
 
-        // 处理上传的文件
-        const req = c.req.raw as any;
-        const uploadedFiles = getUploadedFiles(req);
+        // 从 context 获取文件信息和表单字段
+        const uploadedFiles = getUploadedFiles(c);
+        const body = getFormBody(c);
+
+        console.log('上传的文件数量:', uploadedFiles.length);
+        console.log('请求体:', body);
+
+        // 验证必要字段
+        if (!body.orderId || !body.orderItemId || !body.type || !body.reason) {
+            return c.json({
+                code: 400,
+                message: '缺少必要参数: orderId, orderItemId, type, reason'
+            }, 400);
+        }
 
         // 构建DTO
         const dto: CreateAfterSaleDto = {
-            orderId: body.orderId as string,
-            orderItemId: body.orderItemId as string,
+            orderId: body.orderId,
+            orderItemId: body.orderItemId,
             type: body.type as any,
-            reason: body.reason as string,
-            remark: body.remark as string,
-            // 存储相对路径，使用UUID文件名
+            reason: body.reason,
+            remark: body.remark || '',
             images: uploadedFiles.map(file => `${file.filename}`)
         };
+
+        console.log('DTO:', dto);
 
         const result = await afterSaleService.createAfterSale(userId, dto);
 
@@ -54,7 +56,7 @@ export class AfterSaleController {
                 uploadedFiles: uploadedFiles.map(file => ({
                     originalName: file.originalname,
                     fileName: file.filename,
-                    url: `${file.filename}`,
+                    url: `/images/lenovo/${file.filename}`,
                     size: file.size,
                     type: file.mimetype
                 }))
@@ -79,21 +81,28 @@ export class AfterSaleController {
     }
 
     /**
-   * 对完成的售后投诉
-   */
+     * 对完成的售后投诉
+     */
     async createComplaint(c: Context) {
-        const body = await c.req.parseBody() as any;
         const user = c.get('user');
         const userId = user?.user_id;
 
-        // 处理上传的文件
-        const req = c.req.raw as any;
-        const uploadedFiles = getUploadedFiles(req);
+        // 从 context 获取文件信息和表单字段
+        const uploadedFiles = getUploadedFiles(c);
+        const body = getFormBody(c);
+
+        // 验证必要字段
+        if (!body.afterSaleId || !body.content) {
+            return c.json({
+                code: 400,
+                message: '缺少必要参数: afterSaleId, content'
+            }, 400);
+        }
 
         // 构建DTO
         const dto: CreateComplaintDto = {
-            afterSaleId: body.afterSaleId as string,
-            content: body.content as string,
+            afterSaleId: body.afterSaleId,
+            content: body.content,
             images: uploadedFiles.map(file => `${file.filename}`)
         };
 
@@ -107,7 +116,7 @@ export class AfterSaleController {
                 uploadedFiles: uploadedFiles.map(file => ({
                     originalName: file.originalname,
                     fileName: file.filename,
-                    url: `${file.filename}`,
+                    url: `/images/lenovo/${file.filename}`,
                     size: file.size,
                     type: file.mimetype
                 }))
@@ -115,27 +124,38 @@ export class AfterSaleController {
         });
     }
 
-
     /**
-    * 评价已完成订单里的商品
-    */
+     * 评价已完成订单里的商品
+     */
     async createEvaluation(c: Context) {
-        const body = await c.req.parseBody() as any;
         const user = c.get('user');
         const userId = user?.user_id;
 
-        // 处理上传的文件
-        const req = c.req.raw as any;
-        const uploadedFiles = getUploadedFiles(req);
+        // 从 context 获取文件信息和表单字段
+        const uploadedFiles = getUploadedFiles(c);
+        const body = getFormBody(c);
+
+        console.log('上传文件数量:', uploadedFiles.length);
+        console.log('表单字段:', body);
+
+        // 验证必要字段
+        if (!body.productId || !body.configId || !body.star) {
+            return c.json({
+                code: 400,
+                message: '缺少必要参数: productId, configId, star'
+            }, 400);
+        }
 
         // 构建DTO
         const dto: CreateEvaluationDto = {
-            productId: body.productId as string,
-            configId: body.configId as string,
-            star: parseFloat(body.star as string),
-            content: body.content as string,
-            images: uploadedFiles.map(file => `/user/${file.filename}`)
+            productId: body.productId,
+            configId: body.configId,
+            star: parseFloat(body.star),
+            content: body.content || '',
+            images: uploadedFiles.map(file => `${file.filename}`)
         };
+
+        console.log('构建的DTO:', dto);
 
         const result = await afterSaleService.createEvaluation(userId, dto);
 
@@ -147,13 +167,14 @@ export class AfterSaleController {
                 uploadedFiles: uploadedFiles.map(file => ({
                     originalName: file.originalname,
                     fileName: file.filename,
-                    url: `${file.filename}`,
+                    url: `/images/lenovo/${file.filename}`,
                     size: file.size,
                     type: file.mimetype
                 }))
             },
         });
     }
+
     /**
      * 用户删除评价
      */
@@ -187,22 +208,29 @@ export class AfterSaleController {
     }
 
     /**
-  * 对订单吐槽
-  */
+     * 对订单吐槽
+     */
     async createComment(c: Context) {
-        const body = await c.req.parseBody() as any;
         const user = c.get('user');
         const userId = user?.user_id;
 
-        // 处理上传的文件
-        const req = c.req.raw as any;
-        const uploadedFiles = getUploadedFiles(req);
+        // 从 context 获取文件信息和表单字段
+        const uploadedFiles = getUploadedFiles(c);
+        const body = getFormBody(c);
+
+        // 验证必要字段
+        if (!body.orderId || !body.orderItemId || !body.content) {
+            return c.json({
+                code: 400,
+                message: '缺少必要参数: orderId, orderItemId, content'
+            }, 400);
+        }
 
         // 构建DTO
         const dto: CreateCommentDto = {
-            orderId: body.orderId as string,
-            orderItemId: body.orderItemId as string,
-            content: body.content as string,
+            orderId: body.orderId,
+            orderItemId: body.orderItemId,
+            content: body.content,
             images: uploadedFiles.map(file => `${file.filename}`)
         };
 
@@ -216,13 +244,14 @@ export class AfterSaleController {
                 uploadedFiles: uploadedFiles.map(file => ({
                     originalName: file.originalname,
                     fileName: file.filename,
-                    url: `${file.filename}`,
+                    url: `/images/lenovo/${file.filename}`,
                     size: file.size,
                     type: file.mimetype
                 }))
             },
         });
     }
+
     /**
      * 获取评价列表
      */
