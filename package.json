@@ -3,7 +3,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -26,7 +26,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.2",
     "@types/nodemailer": "^7.0.4",
-    "@types/uuid": "^11.0.0",
+    "@types/uuid": "^9.0.8",
     "dotenv": "^17.2.3",
     "prisma": "6.1.0",
     "tsx": "^4.21.0"
