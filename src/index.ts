@@ -35,8 +35,30 @@ app.get('/static/*', serveStatic({
 }));
 
 app.use('*', cors({
-  origin: CORS_ORIGINS!, // 允许的来源
-  credentials: true,     // 如果前端需要带 cookie
+  origin: (origin) => {
+    // 1. 如果没有 origin（比如 Postman, 手机 App, 服务器请求），直接允许
+    if (!origin) return origin;
+
+    // 2. 允许你的生产环境域名
+    if (origin === 'https://shop.jxutcm.top') return origin;
+
+    // 3. 允许本地开发环境 (localhost) - 方便队友调试
+    // 正则匹配：http://localhost:任意端口 或 http://127.0.0.1:任意端口
+    if (/^http:\/\/localhost:\d+$/.test(origin)) return origin;
+    if (/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) return origin;
+
+    // 4. 允许 Vercel 的预览环境 (Preview URLs) - 方便测试新功能
+    // 匹配：https://xxx-git-xxx.vercel.app
+    if (origin.endsWith('.vercel.app')) return origin;
+
+    // 5. 其他情况：拒绝（或者你可以从环境变量读取允许列表）
+    // 如果你环境变量里填了其他域名，也可以在这里判断
+    const envOrigins = process.env.CORS_ORIGINS?.split(',') || [];
+    if (envOrigins.includes(origin)) return origin;
+
+    return undefined; // 拒绝跨域
+  },
+  credentials: true, // 保持开启，否则无法登录
 }));
 
 app.use('*', clientIpMiddleware) // 获取客户端ip
