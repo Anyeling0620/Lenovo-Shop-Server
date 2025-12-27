@@ -35,6 +35,10 @@ if (!process.env.VERCEL) {
   }));
 }
 
+app.get('/api/ping', (c) => {
+  return c.text('Pong! Vercel is working!')
+})
+
 // 静态资源服务 - 映射到根目录
 app.get('/static/*', serveStatic({ 
   root: join(__dirname, '../public'),
