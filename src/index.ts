@@ -19,7 +19,6 @@ import admin from './routes/admin/admin.routes'
 import { authAdmin } from './middleware/session.middleware'
 import order from './routes/client/order.route'
 import { afterSale } from './routes/client/after-sale.route'
-import { handle } from 'hono/vercel'
 
 dotenv.config()
 
@@ -129,4 +128,4 @@ if (!process.env.VERCEL) {
   test();
 }
 
-export default handle(app);
+export default app;
