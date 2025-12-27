@@ -149,7 +149,17 @@ export const setOrderPendingReceive = async (orderId: string) => {
 
 export const listAfterSales = async (): Promise<AfterSaleResponse[]> => {
   const list = await db.afterSale.findMany({
-    include: { order: true, orderItem: true, user: true },
+    include: { 
+      order: true, 
+      orderItem: true, 
+
+      /////////////////////////////
+      //                         //
+      //       暂时注释一下        //
+      //                         //
+      /////////////////////////////
+      // user: true 
+    },
     orderBy: { applyTime: "desc" },
   });
   return list.map((a) => ({
