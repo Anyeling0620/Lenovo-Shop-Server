@@ -4,7 +4,6 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { prettyJSON } from 'hono/pretty-json'
 import { showRoutes } from 'hono/dev'
-import { createNodeWebSocket } from '@hono/node-ws'
 import dotenv from 'dotenv'
 import { db } from './utils/db'
 import authRouter from './routes/client/auth.routes'
@@ -22,8 +21,9 @@ import order from './routes/client/order.route'
 import { afterSale } from './routes/client/after-sale.route'
 
 dotenv.config()
-const PORT = Number(process.env.PORT)
-const HOST = process.env.HOST
+
+const PORT = Number(process.env.PORT) || 3003
+const HOST = process.env.HOST || '0.0.0.0'
 const CORS_ORIGINS = process.env.CORS_ORIGINS
 
 const app = new Hono()
@@ -72,32 +72,31 @@ app.onError((err, c) => {
   })
 })
 
-
-
 showRoutes(app, {  // 显示路由
   verbose: true,
 })
 
-serve({  // 启动服务
-  fetch: app.fetch,
-  port: PORT,
-  hostname: HOST
-}, info => {
-  console.log(`服务器启动成功：http://${info.address}:${info.port}`)
-})
+// 仅在非 Vercel 环境下启动服务器
+if (!process.env.VERCEL) {
+  serve({  // 启动服务
+    fetch: app.fetch,
+    port: PORT,
+    hostname: HOST
+  }, info => {
+    console.log(`服务器启动成功：http://${info.address}:${info.port}`)
+  })
 
-async function test() {
-  try {
-    await db.$connect();
-    console.log(`数据库连接成功`);
-  } catch (err) {
-    console.error('数据库连接失败:', err);
-  } finally {
-    await db.$disconnect();
+  async function test() {
+    try {
+      await db.$connect();
+      console.log(`数据库连接成功`);
+    } catch (err) {
+      console.error('数据库连接失败:', err);
+    } finally {
+      await db.$disconnect();
+    }
   }
+  test();
 }
-test();
-
 
 export default app
-

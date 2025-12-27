@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
     "strict": true,
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
-    "target": "es2015",
+    "target": "es2015"
   },
   "include": [
     "src/**/*",
+    "api/**/*"
   ]
 }
