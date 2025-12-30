@@ -33,7 +33,7 @@ export const adminLogin = async (c: any) => {
         maxAge: 60 * 60 * 2,
         domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'none',
     });
 
     return c.json({
@@ -66,7 +66,7 @@ export const adminLogout = async (c: any) => {
         maxAge: 0, // 立即过期
         domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'none',
     });
 
     return c.json({
