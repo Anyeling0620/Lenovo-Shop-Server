@@ -21,7 +21,7 @@ export async function registerController(c: any) {
         maxAge: 60 * 60 * 24 * 14,
         domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'none',
     });
 
     return c.json({
@@ -47,7 +47,7 @@ export async function loginController(c: any) {
         maxAge: 60 * 60 * 24 * 14,
         domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'none',
     });
 
     return c.json({
@@ -79,7 +79,7 @@ export async function refreshController(c: any) {
         maxAge: 60 * 60 * 24 * 14,
         domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'none',
     })
 
     return c.json({
@@ -118,7 +118,7 @@ export async function logoutController(c: any) {
     maxAge: 0,
     domain: process.env.COOKIE_DOMAIN,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'none',
   });
 
   return c.json(
