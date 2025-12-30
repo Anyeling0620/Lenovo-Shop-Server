@@ -10,7 +10,9 @@ declare global {
 export const db =
   global.prisma ||
   new PrismaClient({
-    log: ['query', 'info', 'warn', 'error'], // 可打印 SQL 和日志
+    log: process.env.NODE_ENV === 'production' 
+      ? ['warn', 'error']  // 生产环境仅记录警告和错误，性能更好
+      : ['query', 'info', 'warn', 'error'], // 开发环境显示详细信息
   });
 
 if (process.env.NODE_ENV !== 'production') {
