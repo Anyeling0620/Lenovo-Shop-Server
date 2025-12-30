@@ -10,6 +10,7 @@ export interface AdminLoginResponse {
     account: string;
     avatar: string | null;
     email: string | null;
+    sessionId?: string;  // 添加 sessionId 作为备选 token（当 cookie 被 Cloudflare 过滤时使用）
 }
 
 export interface AdminSessionData {

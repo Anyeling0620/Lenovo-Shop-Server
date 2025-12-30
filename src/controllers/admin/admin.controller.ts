@@ -31,9 +31,18 @@ export const adminLogin = async (c: any) => {
         httpOnly: true,
         path: '/',
         maxAge: 60 * 60 * 2,
-        domain: process.env.COOKIE_DOMAIN,
+        domain: '.jxutcm.top',  // 允许所有子域共享 cookie
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',  // 恢复为 'none' 以支持跨域
+    });
+    
+    // 调试：打印 cookie 设置信息
+    console.log('[LOGIN DEBUG] Cookie Settings:', {
+        domain: '.jxutcm.top',
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'none',
+        NODE_ENV: process.env.NODE_ENV,
+        cookieHeader: cookieHeader
     });
 
     return c.json({
@@ -45,6 +54,7 @@ export const adminLogin = async (c: any) => {
             account: admin.account,
             avatar: admin.avatar,
             email: admin.email,
+            sessionId: sessionId,  // 添加 sessionId 到 response body，作为 token 备选
         } as AdminLoginResponse,
         message: '登陆成功'
     }, 200, { 'Set-Cookie': cookieHeader });

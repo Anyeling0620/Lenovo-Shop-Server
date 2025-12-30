@@ -13,8 +13,14 @@ export const authAdmin = async (c: any, next: any) => {
         return;
     }
 
-    const cookies = parseCookies(c.req.header('cookie'));
-    const sessionId = cookies['admin_session'];
+    // 优先尝试从 cookie 获取 sessionId
+    let sessionId = parseCookies(c.req.header('cookie'))['admin_session'];
+    
+    // 如果 cookie 中没有，尝试从 X-Session-ID header 获取（备选方案，当 cookie 被 Cloudflare 过滤时）
+    if (!sessionId) {
+        sessionId = c.req.header('X-Session-ID');
+    }
+    
     if (!sessionId) {
         throw new HTTPException(401, { message: "未找到管理员会话" });
     }
