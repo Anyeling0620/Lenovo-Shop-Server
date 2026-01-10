@@ -24,6 +24,12 @@ import {
   updateIdentityStatusApi,
 } from "../../controllers/admin/system.controller";
 import {
+  getClientDetailController,
+  getClientListController,
+  getClientStatisticsController,
+  updateClientController,
+} from "../../controllers/admin/client-user.controller";
+import {
   addAppearanceController,
   addBannerController,
   addProductConfigController,
@@ -213,5 +219,11 @@ admin.get("/service/sessions/:room_id/messages", listServiceMessagesController);
 admin.post("/service/messages/:message_id/read", markServiceMessageReadController);
 admin.post("/service/sessions/:room_id/end", endServiceSessionController);
 admin.post("/service/messages/:message_id/withdraw", withdrawServiceMessageController);
+
+// 用户管理内的客户端管理
+admin.get("/clients", getClientListController);
+admin.get("/clients/statistics", getClientStatisticsController);
+admin.get("/clients/:id", getClientDetailController);
+admin.patch("/clients/:id", updateClientController);
 
 export default admin;

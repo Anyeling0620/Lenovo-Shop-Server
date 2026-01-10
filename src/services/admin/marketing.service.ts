@@ -1,6 +1,7 @@
 import { HTTPException } from "hono/http-exception";
 import { db } from "../../utils/db";
 import {
+  CouponType,
   RelationStatus,
   SeckillProductConfigStatus,
   SeckillRoundStatus,
@@ -115,7 +116,7 @@ export const createCoupon = async (payload: {
   const coupon = await db.coupon.create({
     data: {
       name: payload.name,
-      type: payload.type,
+      type:  payload.type,
       amount: payload.amount,
       discount: payload.discount,
       threshold: payload.threshold,
@@ -233,15 +234,40 @@ export const listVoucherUsers = async (voucherId: string): Promise<VoucherUserRe
   })) as VoucherUserResponse[];
 };
 
+
 export const issueVoucher = async (payload: { voucherId: string; userIds: string[] }) => {
+  // 验证 Voucher 是否存在
+  const voucher = await db.voucher.findUnique({
+    where: { id: payload.voucherId },
+  });
+
+  if (!voucher) {
+    throw new HTTPException(404, { message: 'Voucher not found' });
+  }
+
+  // 验证 Voucher 是否在有效期内
+  const now = new Date();
+  if (now < voucher.startTime || now > voucher.endTime) {
+    throw new HTTPException(400, { message: 'Voucher is not available at this time' });
+  }
+
+  // 准备要创建的数据
   const data = payload.userIds.map((userId) => ({
     userId,
     voucherId: payload.voucherId,
-    remainAmount: 0,
+    remainAmount: voucher.originalAmount, // 设置为代金券的原始金额
+    status: true,
+    getTime: now,
   }));
-  await db.userVoucher.createMany({ data, skipDuplicates: true });
-  return true;
+
+    // 创建用户代金券记录
+    await db.userVoucher.createMany({
+      data,
+      skipDuplicates: true,
+    });
+    return true;
 };
+
 
 export const listSeckillRounds = async (): Promise<SeckillRoundResponse[]> => {
   const rounds = await db.seckillRound.findMany({
@@ -351,3 +377,5 @@ export const addSeckillConfig = async (payload: {
 
   return { seckill_product_config_id: record.id };
 };
+
+

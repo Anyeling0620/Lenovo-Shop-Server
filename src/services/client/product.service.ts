@@ -64,34 +64,37 @@ export async function getProductCardByCategoryService(query: ProductCardQuery): 
     return { items: [] };
   }
 
-  // 3. 处理数据，组装商品卡片（先过滤无有效配置的商品，再处理）
-  const productCardItems: ProductCardItem[] = [];
-  for (const shelfProduct of shelfProducts) {
-    // 过滤掉没有有效配置的货架商品（提前过滤，避免返回null）
-    if (shelfProduct.items.length === 0) {
-      continue;
-    }
+  // 3. 过滤有效商品并提取商品ID
+  const validShelfProducts = shelfProducts.filter(sp => sp.items.length > 0);
+  
+  if (validShelfProducts.length === 0) {
+    return { items: [] };
+  }
 
-    // 3.1 找到有在售数量的最低售价配置（使用toNumber()转换为数字比较）
+  // 4. 批量查询所有商品的优惠券（并行优化）
+  const productIds = validShelfProducts.map(sp => sp.productId);
+  const couponsMap = await batchQueryAvailableCouponsByProductIds(productIds, userId);
+
+  // 5. 组装商品卡片
+  const productCardItems: ProductCardItem[] = validShelfProducts.map(shelfProduct => {
+    // 找到有在售数量的最低售价配置
     const validConfigs = shelfProduct.items.map(item => item.config) as ProductConfig[];
     const minPriceConfig = validConfigs.reduce((prev, curr) => {
-      // 核心修正：使用Prisma Decimal的toNumber()方法转换为数字
       const prevPrice = prev.salePrice.toNumber();
       const currPrice = curr.salePrice.toNumber();
       return prevPrice < currPrice ? prev : curr;
     }, validConfigs[0]);
 
-    // 3.2 查询商品关联的可用优惠券
-    const coupons = await queryAvailableCouponsByProductId(shelfProduct.productId, userId);
+    // 从批量查询结果中获取优惠券
+    const coupons = couponsMap.get(shelfProduct.productId) || [];
 
-    // 组装商品卡片（确保类型严格匹配接口）
-    productCardItems.push({
-      shelfProduct: shelfProduct as ShelfProduct, // 明确类型断言
-      product: shelfProduct.product as Product, // 明确类型断言
+    return {
+      shelfProduct: shelfProduct as ShelfProduct,
+      product: shelfProduct.product as Product,
       minPriceConfig,
       coupons
-    });
-  }
+    };
+  });
 
   return {
     items: productCardItems
@@ -190,6 +193,122 @@ export async function queryAvailableCouponsByProductId(
 }
 
 
+/**
+ * 批量查询多个商品的可用优惠券（性能优化版本）
+ * @param productIds 商品ID列表
+ * @param userId 用户ID（可选）
+ * @returns Map<商品ID, 可用优惠券列表>
+ */
+export async function batchQueryAvailableCouponsByProductIds(
+  productIds: string[],
+  userId?: string
+): Promise<Map<string, CouponItem[]>> {
+  const now = new Date();
+  const resultMap = new Map<string, CouponItem[]>();
+
+  // 初始化结果 Map
+  productIds.forEach(id => resultMap.set(id, []));
+
+  if (productIds.length === 0) {
+    return resultMap;
+  }
+
+  // 1. 一次性查询所有商品的优惠券关联
+  const couponRelations = await db.productCouponRelation.findMany({
+    where: {
+      productId: { in: productIds },
+      status: '生效'
+    },
+    include: {
+      coupon: {
+        include: {
+          center: true
+        }
+      }
+    }
+  });
+
+  if (couponRelations.length === 0) {
+    return resultMap;
+  }
+
+  // 2. 基础有效性筛选并按商品ID分组
+  const productCouponMap = new Map<string, CouponItem[]>();
+  const allValidCouponIds = new Set<string>();
+
+  for (const relation of couponRelations) {
+    const { coupon, productId } = relation;
+    const { center } = coupon;
+
+    if (!center) continue;
+
+    // 时间有效性检查
+    if (coupon.startTime > now || coupon.expireTime < now) continue;
+    if (center.startTime > now || center.endTime < now) continue;
+    if (center.totalNum <= 0) continue;
+
+    const couponItem: CouponItem = {
+      ...center,
+      coupon
+    };
+
+    if (!productCouponMap.has(productId)) {
+      productCouponMap.set(productId, []);
+    }
+    productCouponMap.get(productId)!.push(couponItem);
+    allValidCouponIds.add(coupon.id);
+  }
+
+  // 3. 用户维度过滤
+  if (userId && allValidCouponIds.size > 0) {
+    // 一次性查询用户所有相关优惠券的领取情况
+    const userCoupons = await db.userCoupon.findMany({
+      where: {
+        userId,
+        couponId: { in: Array.from(allValidCouponIds) }
+      }
+    });
+
+    // 按 couponId 分组用户优惠券
+    const userCouponMap = new Map<string, typeof userCoupons>();
+    for (const uc of userCoupons) {
+      if (!userCouponMap.has(uc.couponId)) {
+        userCouponMap.set(uc.couponId, []);
+      }
+      userCouponMap.get(uc.couponId)!.push(uc);
+    }
+
+    // 过滤每个商品的优惠券
+    for (const [productId, coupons] of productCouponMap.entries()) {
+      const filteredCoupons = coupons.filter(item => {
+        const couponId = item.coupon.id;
+        const userCouponList = userCouponMap.get(couponId) || [];
+
+        // 已使用过的不能再领
+        if (userCouponList.some(uc => uc.status === '已使用')) {
+          return false;
+        }
+
+        // 达到领取上限
+        if (userCouponList.length >= item.limitNum) {
+          return false;
+        }
+
+        return true;
+      });
+
+      resultMap.set(productId, filteredCoupons);
+    }
+  } else {
+    // 无需用户过滤，直接使用基础筛选结果
+    for (const [productId, coupons] of productCouponMap.entries()) {
+      resultMap.set(productId, coupons);
+    }
+  }
+
+  return resultMap;
+}
+
 
 /**
  * 获取新品推送商品卡片数据（按品类分组返回）
@@ -239,60 +358,78 @@ export async function getProductCardByNewService(userId?:string): Promise<Produc
   if (newProducts.length === 0) {
     return { carouselItems: [], items: [] };
   }
-  // 2. 组装 ProductCardItem 列表
-   const productCardItems: Array<{
-    card: ProductCardItem;
-    categoryCode: ProductType; // 品类编码（用于分组）
-    categoryName: string; // 品类名称
-    isCarousel: boolean; // 是否为新品轮播
-    carouselImage: string | null; // 新品轮播图
+
+  // 2. 预处理：过滤有效商品并提取元数据
+  const validNewProducts: Array<{
+    newProduct: typeof newProducts[0];
+    shelfProduct: NonNullable<typeof newProducts[0]['shelfProduct']>;
+    categoryCode: ProductType;
+    categoryName: string;
   }> = [];
- const carouselItems: CarouseProduct[] = []; 
+
   for (const newProduct of newProducts) {
     const shelfProduct = newProduct.shelfProduct;
-    // 过滤无商品信息的货架商品
-    if (!shelfProduct || !shelfProduct.product) {
-      continue;
-    }
-    // 过滤无有效配置的商品
-    if (shelfProduct.items.length === 0) {
-      continue;
-    }
-    // 过滤无品类编码的商品（确保对应 ProductType）
+    if (!shelfProduct || !shelfProduct.product) continue;
+    if (shelfProduct.items.length === 0) continue;
+    
     const categoryCode = shelfProduct.category?.code as ProductType;
-    if (!categoryCode || !Object.values(ProductType).includes(categoryCode)) {
-      continue;
-    }
+    if (!categoryCode || !Object.values(ProductType).includes(categoryCode)) continue;
     const categoryName = shelfProduct.category?.name || categoryCode;
 
-    // 2.1 筛选有在售数量的最低售价配置
+    validNewProducts.push({
+      newProduct,
+      shelfProduct,
+      categoryCode,
+      categoryName
+    });
+  }
+
+  if (validNewProducts.length === 0) {
+    return { carouselItems: [], items: [] };
+  }
+
+  // 3. 批量查询所有商品的优惠券（并行优化）
+  const productIds = validNewProducts.map(item => item.shelfProduct.product.id);
+  const couponsMap = await batchQueryAvailableCouponsByProductIds(productIds, userId);
+
+  // 4. 组装 ProductCardItem 列表
+  const productCardItems: Array<{
+    card: ProductCardItem;
+    categoryCode: ProductType;
+    categoryName: string;
+    isCarousel: boolean;
+    carouselImage: string | null;
+  }> = [];
+  const carouselItems: CarouseProduct[] = [];
+
+  for (const { newProduct, shelfProduct, categoryCode, categoryName } of validNewProducts) {
+    // 筛选有在售数量的最低售价配置
     const validConfigs = shelfProduct.items.map(item => item.config) as ProductConfig[];
     const minPriceConfig = validConfigs.reduce((prev, curr) => {
-      // 使用 toNumber() 转换为数字比较（避免 Decimal 问题）
       const prevPrice = prev.salePrice.toNumber();
       const currPrice = curr.salePrice.toNumber();
       return prevPrice < currPrice ? prev : curr;
     }, validConfigs[0]);
 
-    // 2.2 查询商品关联的可用优惠券
-    const coupons = await queryAvailableCouponsByProductId(shelfProduct.product.id,userId);
+    // 从批量查询结果中获取优惠券
+    const coupons = couponsMap.get(shelfProduct.product.id) || [];
 
-     const card: ProductCardItem = {
+    const card: ProductCardItem = {
       shelfProduct: shelfProduct,
       product: shelfProduct.product,
       minPriceConfig: minPriceConfig,
       coupons: coupons
     };
+
     const isCarousel = newProduct.isCarousel;
     const carouselImage = newProduct.carouselImage;
-    if (isCarousel && carouselImage) { // 有轮播图才加入轮播
+    if (isCarousel && carouselImage) {
       carouselItems.push({
         image: carouselImage,
         product: card
       });
     }
 
-    // 2.3 组装商品卡片
     productCardItems.push({
       card,
       categoryCode,
@@ -302,7 +439,7 @@ export async function getProductCardByNewService(userId?:string): Promise<Produc
     });
   }
 
-  // 3. 按品类分组，生成 ProductGroup 列表
+  // 5. 按品类分组，生成 ProductGroup 列表
   const categoryMap = new Map<ProductType, ProductGroup>();
   for (const item of productCardItems) {
     const { card, categoryCode, categoryName } = item;
@@ -380,36 +517,55 @@ export async function getProductCardIndexService(userId?:string): Promise<Produc
     return { carouselItems: [], items: [] };
   }
 
-  // 2. 组装 ProductCardItem 和 首页轮播数据
-  const productCardItems: Array<{
-    card: ProductCardItem;
-    groupKey: string; // 品牌名+品类名（分组键）
-    groupTitle: string; // 分组标题（品牌名+品类名）
-    isCarousel: boolean; // 是否为首页轮播
-    carouselImage: string | null; // 首页轮播图
+  // 2. 预处理：过滤有效商品并提取元数据
+  const validHomeProducts: Array<{
+    homeProduct: typeof homeProducts[0];
+    shelfProduct: NonNullable<typeof homeProducts[0]['shelfProduct']>;
+    groupKey: string;
+    groupTitle: string;
   }> = [];
-  const carouselItems: CarouseProduct[] = []; // 首页轮播列表
 
   for (const homeProduct of homeProducts) {
     const shelfProduct = homeProduct.shelfProduct;
-    if (!shelfProduct || !shelfProduct.product || !shelfProduct.product.brand) {
-      continue;
-    }
-    if (shelfProduct.items.length === 0) {
-      continue;
-    }
-    // 获取品牌名和品类名
+    if (!shelfProduct || !shelfProduct.product || !shelfProduct.product.brand) continue;
+    if (shelfProduct.items.length === 0) continue;
+
     const brandName = shelfProduct.product.brand.name;
     const categoryCode = shelfProduct.category?.code as ProductType;
     const categoryName = shelfProduct.category?.name || categoryCode;
-    if (!categoryCode || !Object.values(ProductType).includes(categoryCode)) {
-      continue;
-    }
-    // 分组键：品牌名+品类名（确保唯一）
-    const groupKey = `${brandName}-${categoryName}`;
-    const groupTitle = `${brandName}${categoryName}`; // 标题可自定义格式
+    if (!categoryCode || !Object.values(ProductType).includes(categoryCode)) continue;
 
-    // 2.1 筛选最低售价配置
+    const groupKey = `${brandName}-${categoryName}`;
+    const groupTitle = `${brandName}${categoryName}`;
+
+    validHomeProducts.push({
+      homeProduct,
+      shelfProduct,
+      groupKey,
+      groupTitle
+    });
+  }
+
+  if (validHomeProducts.length === 0) {
+    return { carouselItems: [], items: [] };
+  }
+
+  // 3. 批量查询所有商品的优惠券（并行优化）
+  const productIds = validHomeProducts.map(item => item.shelfProduct.product.id);
+  const couponsMap = await batchQueryAvailableCouponsByProductIds(productIds, userId);
+
+  // 4. 组装 ProductCardItem 和首页轮播数据
+  const productCardItems: Array<{
+    card: ProductCardItem;
+    groupKey: string;
+    groupTitle: string;
+    isCarousel: boolean;
+    carouselImage: string | null;
+  }> = [];
+  const carouselItems: CarouseProduct[] = [];
+
+  for (const { homeProduct, shelfProduct, groupKey, groupTitle } of validHomeProducts) {
+    // 筛选最低售价配置
     const validConfigs = shelfProduct.items.map(item => item.config) as ProductConfig[];
     const minPriceConfig = validConfigs.reduce((prev, curr) => {
       const prevPrice = prev.salePrice.toNumber();
@@ -417,10 +573,9 @@ export async function getProductCardIndexService(userId?:string): Promise<Produc
       return prevPrice < currPrice ? prev : curr;
     }, validConfigs[0]);
 
-    // 2.2 查询优惠券
-    const coupons = await queryAvailableCouponsByProductId(shelfProduct.product.id,userId);
+    // 从批量查询结果中获取优惠券
+    const coupons = couponsMap.get(shelfProduct.product.id) || [];
 
-    // 2.3 组装卡片
     const card: ProductCardItem = {
       shelfProduct: shelfProduct,
       product: shelfProduct.product,
@@ -428,17 +583,15 @@ export async function getProductCardIndexService(userId?:string): Promise<Produc
       coupons: coupons
     };
 
-    // 2.4 判断是否为首页轮播，若是则加入轮播列表
     const isCarousel = homeProduct.isCarousel;
     const carouselImage = homeProduct.carouselImage;
-    if (isCarousel && carouselImage) { // 有轮播图才加入轮播
+    if (isCarousel && carouselImage) {
       carouselItems.push({
         image: carouselImage,
         product: card
       });
     }
 
-    // 2.5 加入商品卡片列表（用于后续分组）
     productCardItems.push({
       card,
       groupKey,

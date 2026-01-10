@@ -19,9 +19,9 @@ export async function registerController(c: any) {
         httpOnly: true,
         path: '/',
         maxAge: 60 * 60 * 24 * 14,
-        domain: process.env.COOKIE_DOMAIN,
+        // domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
+        sameSite: 'lax',
     });
 
     return c.json({
@@ -45,9 +45,9 @@ export async function loginController(c: any) {
         httpOnly: true,
         path: '/',
         maxAge: 60 * 60 * 24 * 14,
-        domain: process.env.COOKIE_DOMAIN,
+        // domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
+        sameSite: 'lax',
     });
 
     return c.json({
@@ -77,9 +77,9 @@ export async function refreshController(c: any) {
         httpOnly: true,
         path: '/',
         maxAge: 60 * 60 * 24 * 14,
-        domain: process.env.COOKIE_DOMAIN,
+        // domain: process.env.COOKIE_DOMAIN,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
+        sameSite: 'lax',
     })
 
     return c.json({
@@ -116,9 +116,9 @@ export async function logoutController(c: any) {
     httpOnly: true,
     path: '/',
     maxAge: 0,
-    domain: process.env.COOKIE_DOMAIN,
+    // domain: process.env.COOKIE_DOMAIN,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    sameSite: 'lax',
   });
 
   return c.json(

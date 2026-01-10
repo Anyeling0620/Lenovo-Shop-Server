@@ -402,6 +402,9 @@ model ShelfProduct {
   homePush    HomePush[] // 关联首页推送
 
   @@unique([categoryId, productId])
+  @@index([productId])
+  @@index([categoryId, status])
+  @@index([status, shelfTime])
 }
 
 // 库存表1
@@ -437,6 +440,9 @@ model ShelfProductItem {
   config      ProductConfig @relation("ShelfProductItemConfig", fields: [configId], references: [id])
 
   @@unique([shelfProductId, configId])
+  @@index([shelfProductId, shelfNum])
+  @@index([configId])
+  @@index([productId])
 }
 
 // 新品推送表1
@@ -604,6 +610,8 @@ model ProductCouponRelation {
   coupon      Coupon        @relation(fields: [couponId], references: [id], onDelete: Cascade)
 
   @@unique([productId, couponId])
+  @@index([productId, status])
+  @@index([couponId, status])
 }
 
 // 用户-优惠券持有关联表
@@ -622,6 +630,9 @@ model UserCoupon {
   order       Order?             @relation(fields: [orderId], references: [id])
 
   @@unique([userId, couponId, orderId])
+  @@index([userId, couponId, status])
+  @@index([couponId, status])
+  @@index([orderId])
 }
 
 // 用户-代金券持有关联表

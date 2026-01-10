@@ -4,15 +4,11 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
-// 定义路径就好，不要在启动时尝试创建文件夹！
-// 注意：在 Vercel 上，你也不能真的往这里存文件（存了也会消失），
-// 但为了让代码不崩，我们先把“创建文件夹”这步跳过。
-// 暂时改成这样，后续部署成功了，再考虑把资源存放到私有obs
-const userUploadDir = path.join('/tmp', 'images', 'lenovo'); // 建议临时改到 /tmp，防止报错
-
-// if (!fs.existsSync(userUploadDir)) {
-//   fs.mkdirSync(userUploadDir, { recursive: true });
-// }
+// 确保用户上传目录存在
+const userUploadDir = path.join(process.cwd(), 'public', 'images', 'lenovo');
+if (!fs.existsSync(userUploadDir)) {
+  fs.mkdirSync(userUploadDir, { recursive: true });
+}
 
 // 允许的图片类型
 const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
