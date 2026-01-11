@@ -23,13 +23,16 @@ jobs:
 
       - name: Install and Restart API
         run: |
-          # 1. 进入项目在宝塔的实际运行目录
-          cd /www/wwwroot/api.jxutcm.top
+          # 1. 同步 runner 已 checkout 的代码到宝塔实际运行目录
+          # 避免再用 git fetch，因为宝塔目录的 .git remote 仍是 HTTPS，会触发 SSL_ERROR_SYSCALL
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            $GITHUB_WORKSPACE/ /www/wwwroot/api.jxutcm.top/
           
-          # 2. 强制拉取 GitHub 上的最新代码
-          # 注意：Runner 运行时的权限通常是 root 或特定用户，确保目录有权限
-          git fetch --all
-          git reset --hard origin/master
+          # 2. 进入项目在宝塔的实际运行目录
+          cd /www/wwwroot/api.jxutcm.top
           
           # 3. 极速安装依赖（使用国内源）
           pnpm install --registry=https://registry.npmmirror.com
