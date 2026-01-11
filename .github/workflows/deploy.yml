@@ -10,8 +10,16 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      - name: Setup SSH known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY_LENOVO_SHOP_SERVER }}
 
       - name: Install and Restart API
         run: |
