@@ -16,6 +16,9 @@ import {
   updateIdentityStatus,
   getAdminLoginRecords,
   forceLogoutBySessionId,
+  listOnlineUsers,
+  forceLogoutUserByLoginId,
+  getUserLoginRecords,
   updateAdminInfo,
   deleteAdminAccount,
 } from "../../services/admin/account.service";
@@ -226,5 +229,49 @@ export const forceLogoutBySessionIdApi = async (c: any) => {
   
   const { session_id } = c.req.param();
   await forceLogoutBySessionId(session_id);
+  return c.json({ code: 200, message: "强制下线成功", data: null });
+};
+
+/**
+ * 获取在线用户列表
+ */
+export const getOnlineUsersApi = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  
+  const data = await listOnlineUsers();
+  return c.json({ code: 200, message: "success", data });
+};
+
+/**
+ * 获取用户登录记录
+ */
+export const getUserLoginRecordsApi = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  
+  const query = c.req.query();
+  const params = {
+    page: query.page ? parseInt(query.page) : undefined,
+    pageSize: query.pageSize ? parseInt(query.pageSize) : undefined,
+    account: query.account,
+    deviceType: query.deviceType,
+    startDate: query.startDate,
+    endDate: query.endDate,
+  };
+  
+  const data = await getUserLoginRecords(params);
+  return c.json({ code: 200, message: "success", data });
+};
+
+/**
+ * 根据用户登录ID强制下线
+ */
+export const forceLogoutUserApi = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  
+  const { user_login_id } = c.req.param();
+  await forceLogoutUserByLoginId(user_login_id);
   return c.json({ code: 200, message: "强制下线成功", data: null });
 };

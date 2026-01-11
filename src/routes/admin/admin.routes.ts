@@ -24,6 +24,9 @@ import {
   updateIdentityStatusApi,
   getAdminLoginRecordsApi,
   forceLogoutBySessionIdApi,
+  getOnlineUsersApi,
+  getUserLoginRecordsApi,
+  forceLogoutUserApi,
   updateAdminAccount,
   deleteAdminAccountController,
 } from "../../controllers/admin/system.controller";
@@ -154,6 +157,8 @@ admin.get("/system/identities", getAllIdentitiesWithPermissions);
 admin.get("/system/permissions", getPermissionMenu);
 admin.get("/system/admins/online", getOnlineAdmins);
 admin.get("/system/admins/login-records", getAdminLoginRecordsApi);
+admin.get("/system/users/online", getOnlineUsersApi);
+admin.get("/system/users/login-records", getUserLoginRecordsApi);
 // ✅ 参数路由均放在同层级固定路由之后
 admin.patch("/system/admins/:admin_id", updateAdminAccount);
 admin.delete("/system/admins/:admin_id", deleteAdminAccountController);
@@ -162,6 +167,10 @@ admin.delete("/system/admins/:admin_id/identities/:identity_id", unbindIdentity)
 admin.post("/system/admins/:admin_id/logout", kickAdminOffline);
 admin.post("/system/admins/:admin_id/disable", disableAdminAccount);
 admin.patch("/system/admins/:admin_id/identities/:identity_id/expire", updateAdminIdentityExpireApi);
+admin.patch("/system/identities/:identity_id/status", updateIdentityStatusApi);
+admin.post("/system/admins/:admin_id/reset-password", resetAdminPasswordApi);
+admin.post("/system/sessions/:session_id/force-logout", forceLogoutBySessionIdApi);
+admin.post("/system/users/logins/:user_login_id/force-logout", forceLogoutUserApi);
 admin.patch("/system/identities/:identity_id/status", updateIdentityStatusApi);
 admin.post("/system/admins/:admin_id/reset-password", resetAdminPasswordApi);
 admin.post("/system/sessions/:session_id/force-logout", forceLogoutBySessionIdApi);

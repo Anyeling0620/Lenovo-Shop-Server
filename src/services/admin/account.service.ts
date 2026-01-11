@@ -723,3 +723,156 @@ export const forceLogoutBySessionId = async (sessionId: string) => {
 
   return true;
 };
+
+/**
+ * 获取在线用户（客户端用户）列表
+ */
+export const listOnlineUsers = async () => {
+  // 用户的在线判断：refreshToken存在且loginAt在最近24小时内（或可配置）
+  const onlineThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24小时前
+  
+  const logins = await db.userLogin.findMany({
+    where: {
+      logoutAt: null,
+      loginAt: { gte: onlineThreshold },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          account: true,
+          nickname: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { loginAt: 'desc' },
+  });
+
+  return logins.map((login) => ({
+    user_login_id: login.id,
+    user_id: login.userId,
+    account: login.user.account,
+    name: login.user.nickname || login.user.account,
+    email: login.user.email,
+    device_id: login.deviceId,
+    device_name: login.deviceName,
+    device_type: login.deviceType,
+    login_time: login.loginAt,
+    login_ip: login.ipAddress,
+    user_agent: login.userAgent,
+  }));
+};
+
+/**
+ * 根据用户登录ID强制用户下线
+ */
+export const forceLogoutUserByLoginId = async (userLoginId: string) => {
+  const login = await db.userLogin.findUnique({
+    where: { id: userLoginId },
+  });
+
+  if (!login) {
+    throw new HTTPException(404, { message: "登录会话不存在" });
+  }
+
+  // 更新登出时间，清除refreshToken
+  await db.userLogin.update({
+    where: { id: userLoginId },
+    data: { 
+      logoutAt: new Date(),
+      refreshToken: '', // 清除token使其无法刷新
+    },
+  });
+
+  return true;
+};
+
+/**
+ * 获取用户登录记录
+ */
+export const getUserLoginRecords = async (params: {
+  page?: number;
+  pageSize?: number;
+  account?: string;
+  deviceType?: string;
+  startDate?: string;
+  endDate?: string;
+}) => {
+  const page = params.page || 1;
+  const pageSize = params.pageSize || 10;
+  const skip = (page - 1) * pageSize;
+
+  const where: any = {};
+
+  // 根据账号筛选
+  if (params.account) {
+    const users = await db.user.findMany({
+      where: {
+        OR: [
+          { account: { contains: params.account } },
+          { nickname: { contains: params.account } },
+          { email: { contains: params.account } },
+        ],
+      },
+      select: { id: true },
+    });
+    where.userId = { in: users.map((u) => u.id) };
+  }
+
+  // 根据设备类型筛选
+  if (params.deviceType) {
+    where.deviceType = params.deviceType;
+  }
+
+  // 根据时间范围筛选
+  if (params.startDate || params.endDate) {
+    where.loginAt = {};
+    if (params.startDate) {
+      where.loginAt.gte = new Date(params.startDate);
+    }
+    if (params.endDate) {
+      where.loginAt.lte = new Date(params.endDate);
+    }
+  }
+
+  const [records, total] = await Promise.all([
+    db.userLogin.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            account: true,
+            nickname: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { loginAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    db.userLogin.count({ where }),
+  ]);
+
+  return {
+    list: records.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      account: r.user.account,
+      name: r.user.nickname || r.user.account,
+      email: r.user.email,
+      deviceType: r.deviceType,
+      deviceName: r.deviceName,
+      ipAddress: r.ipAddress || "",
+      userAgent: r.userAgent || "",
+      loginTime: r.loginAt,
+      logoutTime: r.logoutAt,
+      status: r.logoutAt ? "OFFLINE" : "ONLINE",
+    })),
+    total,
+    page,
+    pageSize,
+  };
+};
