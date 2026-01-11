@@ -23,7 +23,12 @@ jobs:
 
       - name: Install and Restart API
         run: |
-          # 1. 同步 runner 已 checkout 的代码到宝塔实际运行目录
+          # 1. 解锁宝塔防篡改（.user.ini 文件锁），避免 rsync 报 Operation not permitted
+          if [ -f /www/wwwroot/api.jxutcm.top/.user.ini ]; then
+            chattr -i /www/wwwroot/api.jxutcm.top/.user.ini
+          fi
+          
+          # 2. 同步 runner 已 checkout 的代码到宝塔实际运行目录
           # 避免再用 git fetch，因为宝塔目录的 .git remote 仍是 HTTPS，会触发 SSL_ERROR_SYSCALL
           rsync -av --delete \
             --exclude='.git' \
@@ -31,15 +36,20 @@ jobs:
             --exclude='.env' \
             $GITHUB_WORKSPACE/ /www/wwwroot/api.jxutcm.top/
           
-          # 2. 进入项目在宝塔的实际运行目录
+          # 3. 重新锁定 .user.ini（恢复宝塔防护）
+          if [ -f /www/wwwroot/api.jxutcm.top/.user.ini ]; then
+            chattr +i /www/wwwroot/api.jxutcm.top/.user.ini
+          fi
+          
+          # 4. 进入项目在宝塔的实际运行目录
           cd /www/wwwroot/api.jxutcm.top
           
-          # 3. 极速安装依赖（使用国内源）
+          # 5. 极速安装依赖（使用国内源）
           pnpm install --registry=https://registry.npmmirror.com
           
-          # 4. 重新生成 Prisma（如果有数据库变动）
+          # 6. 重新生成 Prisma（如果有数据库变动）
           pnpm prisma generate
           
-          # 5. 使用 PM2 平滑重启
+          # 7. 使用 PM2 平滑重启
           # --update-env 会重新读取最新的 .env 文件
           pm2 restart lenovo-shop-server --update-env || pm2 start "npx tsx src/index.ts" --name lenovo-shop-server
