@@ -386,18 +386,32 @@ export const unbindAdminIdentity = async (adminId: string, identityId: string) =
 export const listOnlineAdmins = async () => {
   const sessions = await db.adminSession.findMany({
     where: { expireTime: { gt: new Date() } },
-    include: { admin: true },
+    include: { 
+      admin: true,
+      logins: {
+        where: { logoutTime: null },
+        orderBy: { loginTime: 'desc' },
+        take: 1,
+      },
+    },
   });
 
-  return sessions.map((s) => ({
-    admin_session_id: s.id,
-    session_id: s.sessionId,
-    expire_time: s.expireTime,
-    admin_id: s.adminId,
-    account: s.admin.account,
-    name: s.admin.name,
-    status: s.admin.status,
-  }));
+  return sessions.map((s) => {
+    const latestLogin = s.logins[0];
+    return {
+      admin_session_id: s.id,
+      session_id: s.sessionId,
+      expire_time: s.expireTime,
+      admin_id: s.adminId,
+      account: s.admin.account,
+      name: s.admin.name,
+      status: s.admin.status,
+      login_time: latestLogin?.loginTime,
+      login_ip: latestLogin?.loginIp,
+      device_name: latestLogin?.deviceName,
+      device_type: latestLogin?.deviceType,
+    };
+  });
 };
 
 export const logoutAdmin = async (adminId: string) => {
