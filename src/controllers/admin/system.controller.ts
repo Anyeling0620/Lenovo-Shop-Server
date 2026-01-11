@@ -16,6 +16,8 @@ import {
   updateIdentityStatus,
   getAdminLoginRecords,
   forceLogoutBySessionId,
+  updateAdminInfo,
+  deleteAdminAccount,
 } from "../../services/admin/account.service";
 import { HTTPException } from "hono/http-exception";
 import {
@@ -125,6 +127,43 @@ export const disableAdminAccount = async (c: any) => {
   const { admin_id } = c.req.param();
   await disableAdmin(admin_id);
   return c.json({ code: 200, message: "已禁用", data: null });
+};
+
+/**
+ * 更新管理员信息
+ */
+export const updateAdminAccount = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  const { admin_id } = c.req.param();
+  const body = await c.req.json();
+  
+  await updateAdminInfo(admin_id, {
+    name: body.name,
+    nickname: body.nickname,
+    email: body.email,
+    identityIds: body.identity_ids,
+    categoryIds: body.category_ids,
+  });
+  
+  return c.json({ code: 200, message: "更新成功", data: null });
+};
+
+/**
+ * 删除管理员
+ */
+export const deleteAdminAccountController = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  const { admin_id } = c.req.param();
+  
+  // 防止删除自己
+  if (admin_id === session.admin_id) {
+    throw new HTTPException(400, { message: "不能删除自己的账号" });
+  }
+  
+  await deleteAdminAccount(admin_id);
+  return c.json({ code: 200, message: "删除成功", data: null });
 };
 
 export const updateAdminIdentityExpireApi = async (c: any) => {

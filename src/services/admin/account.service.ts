@@ -435,6 +435,141 @@ export const disableAdmin = async (adminId: string) => {
   return true;
 };
 
+/**
+ * 更新管理员信息
+ */
+export const updateAdminInfo = async (
+  adminId: string,
+  payload: {
+    name?: string;
+    nickname?: string;
+    email?: string;
+    identityIds?: string[];
+    categoryIds?: string[];
+  }
+) => {
+  // 检查管理员是否存在
+  const admin = await db.admin.findUnique({
+    where: { id: adminId },
+    select: { id: true },
+  });
+  if (!admin) throw new HTTPException(404, { message: "管理员不存在" });
+
+  // 如果有邮箱更新，检查邮箱是否被其他管理员使用
+  if (payload.email) {
+    const emailOwner = await db.admin.findFirst({
+      where: {
+        email: payload.email,
+        id: { not: adminId },
+      },
+      select: { id: true },
+    });
+    if (emailOwner) throw new HTTPException(400, { message: "邮箱已被其他管理员使用" });
+  }
+
+  // 更新基本信息
+  await db.admin.update({
+    where: { id: adminId },
+    data: {
+      name: payload.name,
+      nickname: payload.nickname,
+      email: payload.email,
+    },
+  });
+
+  // 更新身份
+  if (payload.identityIds !== undefined) {
+    // 删除所有现有身份
+    await db.adminIdentity.deleteMany({
+      where: { adminId },
+    });
+
+    // 添加新身份
+    if (payload.identityIds.length > 0) {
+      const identityData = payload.identityIds.map((identityId) => ({
+        adminId,
+        identityId,
+        assignerId: adminId, // 使用当前管理员作为分配者
+      }));
+      await db.adminIdentity.createMany({
+        data: identityData,
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  // 更新专区
+  if (payload.categoryIds !== undefined) {
+    // 删除所有现有专区
+    await db.adminProductCategory.deleteMany({
+      where: { adminId },
+    });
+
+    // 添加新专区
+    if (payload.categoryIds.length > 0) {
+      const catData = payload.categoryIds.map((categoryId) => ({
+        adminId,
+        categoryId,
+        creatorId: adminId,
+      }));
+      await db.adminProductCategory.createMany({
+        data: catData,
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  return true;
+};
+
+/**
+ * 删除管理员
+ */
+export const deleteAdminAccount = async (adminId: string) => {
+  // 检查管理员是否存在
+  const admin = await db.admin.findUnique({
+    where: { id: adminId },
+    select: { id: true, account: true },
+  });
+  if (!admin) throw new HTTPException(404, { message: "管理员不存在" });
+
+  // 可选：检查是否是超级管理员，防止误删
+  // const isSuperAdmin = await db.adminIdentity.findFirst({
+  //   where: { 
+  //     adminId, 
+  //     identity: { code: 'SUPER' } 
+  //   }
+  // });
+  // if (isSuperAdmin) throw new HTTPException(403, { message: "不能删除超级管理员" });
+
+  // 删除相关的身份关联
+  await db.adminIdentity.deleteMany({
+    where: { adminId },
+  });
+
+  // 删除相关的专区关联
+  await db.adminProductCategory.deleteMany({
+    where: { adminId },
+  });
+
+  // 删除相关的登录记录（可选，根据需求决定是否保留历史记录）
+  // await db.adminLogin.deleteMany({
+  //   where: { adminId },
+  // });
+
+  // 删除相关的会话
+  await db.adminSession.deleteMany({
+    where: { adminId },
+  });
+
+  // 删除管理员
+  await db.admin.delete({
+    where: { id: adminId },
+  });
+
+  return true;
+};
+
 export const updateAdminIdentityExpire = async (
   adminId: string,
   identityId: string,
