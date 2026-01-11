@@ -461,3 +461,116 @@ export const ensureAdminIsSuperOrSystem = async (identityIds: string[]) => {
   if (codes.includes("SUPER_ADMIN") || codes.includes("SYSTEM_ADMIN")) return;
   throw new HTTPException(403, { message: "需要系统管理员权限" });
 };
+
+/**
+ * 获取管理员登录记录
+ */
+export const getAdminLoginRecords = async (params: {
+  page?: number;
+  pageSize?: number;
+  account?: string;
+  deviceType?: string;
+  startDate?: string;
+  endDate?: string;
+}) => {
+  const page = params.page || 1;
+  const pageSize = params.pageSize || 10;
+  const skip = (page - 1) * pageSize;
+
+  const where: any = {};
+
+  // 根据账号筛选
+  if (params.account) {
+    const admins = await db.admin.findMany({
+      where: {
+        OR: [
+          { account: { contains: params.account } },
+          { name: { contains: params.account } },
+        ],
+      },
+      select: { id: true },
+    });
+    where.adminId = { in: admins.map((a) => a.id) };
+  }
+
+  // 根据设备类型筛选
+  if (params.deviceType) {
+    where.deviceType = params.deviceType;
+  }
+
+  // 根据时间范围筛选
+  if (params.startDate || params.endDate) {
+    where.loginTime = {};
+    if (params.startDate) {
+      where.loginTime.gte = new Date(params.startDate);
+    }
+    if (params.endDate) {
+      where.loginTime.lte = new Date(params.endDate);
+    }
+  }
+
+  const [records, total] = await Promise.all([
+    db.adminLogin.findMany({
+      where,
+      include: {
+        admin: {
+          select: {
+            id: true,
+            account: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { loginTime: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    db.adminLogin.count({ where }),
+  ]);
+
+  return {
+    list: records.map((r) => ({
+      id: r.id,
+      adminId: r.adminId,
+      account: r.admin.account,
+      name: r.admin.name,
+      deviceType: r.deviceType,
+      deviceName: r.deviceName,
+      ipAddress: r.loginIp || "",
+      loginTime: r.loginTime,
+      logoutTime: r.logoutTime,
+      status: r.logoutTime ? "OFFLINE" : "ONLINE",
+      sessionId: r.sessionId,
+    })),
+    total,
+    page,
+    pageSize,
+  };
+};
+
+/**
+ * 根据sessionId强制管理员下线
+ */
+export const forceLogoutBySessionId = async (sessionId: string) => {
+  const session = await db.adminSession.findUnique({
+    where: { sessionId },
+  });
+
+  if (!session) {
+    throw new HTTPException(404, { message: "会话不存在" });
+  }
+
+  // 更新session过期时间
+  await db.adminSession.update({
+    where: { id: session.id },
+    data: { expireTime: new Date() },
+  });
+
+  // 更新登录记录的登出时间
+  await db.adminLogin.updateMany({
+    where: { sessionId: session.id, logoutTime: null },
+    data: { logoutTime: new Date() },
+  });
+
+  return true;
+};

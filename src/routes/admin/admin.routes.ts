@@ -22,6 +22,8 @@ import {
   unbindIdentity,
   updateAdminIdentityExpireApi,
   updateIdentityStatusApi,
+  getAdminLoginRecordsApi,
+  forceLogoutBySessionIdApi,
 } from "../../controllers/admin/system.controller";
 import {
   createPermission,
@@ -149,6 +151,7 @@ admin.post("/system/admins", createAdmin);
 admin.get("/system/identities", getAllIdentitiesWithPermissions);
 admin.get("/system/permissions", getPermissionMenu);
 admin.get("/system/admins/online", getOnlineAdmins);
+admin.get("/system/admins/login-records", getAdminLoginRecordsApi);
 // ✅ 参数路由均放在同层级固定路由之后
 admin.post("/system/admins/:admin_id/identities", bindIdentity);
 admin.delete("/system/admins/:admin_id/identities/:identity_id", unbindIdentity);
@@ -157,6 +160,7 @@ admin.post("/system/admins/:admin_id/disable", disableAdminAccount);
 admin.patch("/system/admins/:admin_id/identities/:identity_id/expire", updateAdminIdentityExpireApi);
 admin.patch("/system/identities/:identity_id/status", updateIdentityStatusApi);
 admin.post("/system/admins/:admin_id/reset-password", resetAdminPasswordApi);
+admin.post("/system/sessions/:session_id/force-logout", forceLogoutBySessionIdApi);
 
 // Permission & Identity management (requires super/system identity)
 admin.post("/system/permissions", createPermission);

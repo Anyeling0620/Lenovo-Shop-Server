@@ -14,6 +14,8 @@ import {
   unbindAdminIdentity,
   updateAdminIdentityExpire,
   updateIdentityStatus,
+  getAdminLoginRecords,
+  forceLogoutBySessionId,
 } from "../../services/admin/account.service";
 import { HTTPException } from "hono/http-exception";
 import {
@@ -153,4 +155,37 @@ export const resetAdminPasswordApi = async (c: any) => {
   if (!body.new_password) throw new HTTPException(400, { message: "new_password 不能为空" });
   await resetAdminPassword(admin_id, body.new_password);
   return c.json({ code: 200, message: "重置成功", data: null });
+};
+
+/**
+ * 获取管理员登录记录
+ */
+export const getAdminLoginRecordsApi = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  
+  const query = c.req.query();
+  const params = {
+    page: query.page ? parseInt(query.page) : undefined,
+    pageSize: query.pageSize ? parseInt(query.pageSize) : undefined,
+    account: query.account,
+    deviceType: query.deviceType,
+    startDate: query.startDate,
+    endDate: query.endDate,
+  };
+  
+  const data = await getAdminLoginRecords(params);
+  return c.json({ code: 200, message: "success", data });
+};
+
+/**
+ * 根据sessionId强制下线
+ */
+export const forceLogoutBySessionIdApi = async (c: any) => {
+  const session = c.get("adminSession");
+  await ensureAdminIsSuperOrSystem(session.identitys);
+  
+  const { session_id } = c.req.param();
+  await forceLogoutBySessionId(session_id);
+  return c.json({ code: 200, message: "强制下线成功", data: null });
 };
