@@ -24,6 +24,16 @@ import {
   updateIdentityStatusApi,
 } from "../../controllers/admin/system.controller";
 import {
+  createPermission,
+  updatePermission,
+  deletePermission,
+  createIdentity,
+  updateIdentity,
+  deleteIdentity,
+  assignPermissionsToIdentity,
+  revokePermissionsFromIdentity,
+} from "../../controllers/admin/permission-admin.controller";
+import {
   getClientDetailController,
   getClientListController,
   getClientStatisticsController,
@@ -147,6 +157,18 @@ admin.post("/system/admins/:admin_id/disable", disableAdminAccount);
 admin.patch("/system/admins/:admin_id/identities/:identity_id/expire", updateAdminIdentityExpireApi);
 admin.patch("/system/identities/:identity_id/status", updateIdentityStatusApi);
 admin.post("/system/admins/:admin_id/reset-password", resetAdminPasswordApi);
+
+// Permission & Identity management (requires super/system identity)
+admin.post("/system/permissions", createPermission);
+admin.patch("/system/permissions/:permission_id", updatePermission);
+admin.delete("/system/permissions/:permission_id", deletePermission);
+
+admin.post("/system/identities", createIdentity);
+admin.patch("/system/identities/:identity_id", updateIdentity);
+admin.delete("/system/identities/:identity_id", deleteIdentity);
+
+admin.post("/system/identities/:identity_id/permissions", assignPermissionsToIdentity);
+admin.delete("/system/identities/:identity_id/permissions", revokePermissionsFromIdentity);
 
 // 商品/仓库管理（核心修复：stats 前置）
 admin.get("/brands", listBrandsController);

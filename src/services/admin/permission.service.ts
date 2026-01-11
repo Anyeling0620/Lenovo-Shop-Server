@@ -209,3 +209,73 @@ const buildPermissionTree = (permissions: PermissionInfo[]): PermissionInfo[] =>
   return rootPermissions;
 };
 
+// ------------------ Additional admin APIs: permission & identity management ------------------
+
+export const createPermission = async (payload: { name: string; type: string; module: string; parentId?: string | null; creatorId?: string }) => {
+  const created = await db.permission.create({
+    data: {
+      name: payload.name,
+      type: payload.type,
+      module: payload.module,
+      parentId: payload.parentId ?? null,
+      status: PermissionStatus.启用,
+    }
+  });
+  return created;
+};
+
+export const updatePermissionById = async (permissionId: string, data: Partial<{ name: string; type: string; module: string; parentId?: string | null; status?: PermissionStatus }>) => {
+  await db.permission.update({ where: { id: permissionId }, data });
+  return true;
+};
+
+export const deletePermissionById = async (permissionId: string) => {
+  const rel = await db.identityPermission.findFirst({ where: { permissionId } });
+  if (rel) {
+    throw new HTTPException(400, { message: 'permission in use by identity' });
+  }
+  await db.permission.delete({ where: { id: permissionId } });
+  return true;
+};
+
+export const createIdentity = async (payload: { name: string; code: string; description?: string | null; creatorId?: string }) => {
+  const created = await db.identity.create({ data: { name: payload.name, code: payload.code, description: payload.description ?? null, status: IdentityStatus.启用 } });
+  return created;
+};
+
+export const updateIdentityById = async (identityId: string, data: Partial<{ name: string; code: string; description?: string | null; status?: IdentityStatus }>) => {
+  await db.identity.update({ where: { id: identityId }, data });
+  return true;
+};
+
+export const deleteIdentityById = async (identityId: string) => {
+  const rel = await db.adminIdentity.findFirst({ where: { identityId } });
+  if (rel) {
+    throw new HTTPException(400, { message: 'identity bound to admin, cannot delete' });
+  }
+  await db.identity.delete({ where: { id: identityId } });
+  return true;
+};
+
+export const assignPermissionsToIdentityService = async (identityId: string, permissionIds: string[], assignerId: string) => {
+  for (const pid of permissionIds) {
+    const exist = await db.identityPermission.findUnique({ where: { identityId_permissionId: { identityId, permissionId: pid } } });
+    if (exist) {
+      await db.identityPermission.update({ where: { id: exist.id }, data: { status: IdentityStatus.启用, assignTime: new Date(), assignerId } });
+    } else {
+      await db.identityPermission.create({ data: { identityId, permissionId: pid, assignerId, status: IdentityStatus.启用 } });
+    }
+  }
+  return true;
+};
+
+export const revokePermissionsFromIdentityService = async (identityId: string, permissionIds: string[]) => {
+  for (const pid of permissionIds) {
+    const exist = await db.identityPermission.findUnique({ where: { identityId_permissionId: { identityId, permissionId: pid } } });
+    if (exist) {
+      await db.identityPermission.update({ where: { id: exist.id }, data: { status: IdentityStatus.禁用 } });
+    }
+  }
+  return true;
+};
+
