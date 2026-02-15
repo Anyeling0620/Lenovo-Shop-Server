@@ -33,7 +33,6 @@
 - [文件上传（multipart/form-data）](#文件上传multipartform-data)
 - [本地开发](#本地开发)
 - [生产构建与运行](#生产构建与运行)
-- [部署到 Vercel](#部署到-vercel)
 - [常见问题与排错](#常见问题与排错)
 - [安全与生产建议](#安全与生产建议)
 - [项目结构与代码速查](#项目结构与代码速查)
@@ -405,7 +404,7 @@ QQ_EMAIL_HOST="smtp.qq.com"
 # 管理端 cookie 域名
 COOKIE_DOMAIN="localhost"
 
-# 允许跨域的来源（代码里还额外放行 localhost、127.0.0.1、.vercel.app、https://shop.jxutcm.top）
+# 允许跨域的来源（代码里可能还额外放行 localhost、127.0.0.1 等常见开发域名）
 CORS_ORIGINS="http://localhost:3000,http://localhost:5173"
 ```
 
@@ -439,13 +438,6 @@ pnpm build
 pnpm start
 ```
 
-## 部署到 Vercel
-
-Vercel Serverless 入口：`api/[...route].ts`。
-
-- 在 Vercel 的环境变量中配置 `.env` 对应的值（至少 `DATABASE_URL`、JWT secrets）。
-- `src/index.ts` 中会检测 `process.env.VERCEL`：Vercel 环境下不会调用 `serve()`，由 Vercel runtime 托管。
-
 ## 常见问题与排错
 
 ### 1) 跨域（CORS）失败
@@ -456,7 +448,8 @@ Vercel Serverless 入口：`api/[...route].ts`。
 
 - 前端请求是否设置 `credentials: 'include'`（管理端必须）
 - `.env` 的 `CORS_ORIGINS` 是否包含前端来源（协议+域名+端口）
-- `src/index.ts` 中是否对 localhost/127.0.0.1/.vercel.app 做了额外放行
+- `src/index.ts` 中是否对 localhost/127.0.0.1 等开发域名做了额外放行
+
 
 ### 2) 401 / 403
 
@@ -481,7 +474,7 @@ Vercel Serverless 入口：`api/[...route].ts`。
 ## 安全与生产建议
 
 - **不要使用 README 示例中的默认 JWT 密钥**：生产务必替换为强随机串。
-- **不要把 `.env` 提交到仓库**；生产环境使用平台环境变量（Vercel/容器等）。
+- **不要把 `.env` 提交到仓库**；生产环境使用平台环境变量（容器/平台托管等）。
 - **数据库账号最小权限**：生产建议使用专用账号，只授予所需库的权限。
 - **上传文件风控**：建议限制文件类型/大小/数量，并对外链访问做必要鉴权（若未来需要）。
 
@@ -505,7 +498,6 @@ Vercel Serverless 入口：`api/[...route].ts`。
 - **鉴权/会话/上传等中间件**：`src/middleware/*`
 - **数据库模型**：`prisma/schema.prisma`
 - **静态资源**：`public/*`（开发环境可通过 `/static/*` 访问）
-- **Vercel 入口**：`api/[...route].ts`
 
 ### 目录树（可视化）
 
@@ -516,7 +508,6 @@ flowchart TD
 	root[lenovo-shop-server/]
 
 	root --> api[api/]
-	api --> vercel[api/[...route].ts\nVercel Serverless 入口]
 
 	root --> prisma[prisma/]
 	prisma --> schema[schema.prisma\n数据模型]
