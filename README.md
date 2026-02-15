@@ -1,4 +1,4 @@
-# lenovo-shop-server
+# Lenovo-Shop-Server
 
 联想商城后端服务（配套 `lenovo-shop` 前台与 `lenovo-admin` 管理端）。
 
