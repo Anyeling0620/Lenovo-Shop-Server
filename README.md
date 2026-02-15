@@ -516,7 +516,7 @@ flowchart TD
 	root[lenovo-shop-server/]
 
 	root --> api[api/]
-	api --> vercel[...[route].ts\nVercel Serverless 入口]
+	api --> vercel[api/[...route].ts\nVercel Serverless 入口]
 
 	root --> prisma[prisma/]
 	prisma --> schema[schema.prisma\n数据模型]
@@ -532,7 +532,7 @@ flowchart TD
 	src --> controllers[controllers/]
 	controllers --> clientControllers[client/\n客户端业务]
 	controllers --> adminControllers[admin/\n管理端业务]
-	src --> middleware[middleware/\njwt/session/upload...]
+	src --> middleware[middleware/\njwt/session/upload]
 	src --> services[services/\n服务层]
 	src --> utils[utils/\n通用工具]
 
