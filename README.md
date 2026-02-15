@@ -504,30 +504,48 @@ pnpm start
 > GitHub / VS Code 都支持渲染 Mermaid。若你的渲染器不支持，可临时参考上一版 README 的文本树。
 
 ```mermaid
-flowchart TD
-	root[lenovo-shop-server/]
+flowchart LR
+	root["lenovo-shop-server"]
 
-	root --> api[api/]
+	api["api"]
+	prisma["prisma"]
+	publicDir["public"]
+	src["src"]
+	docs["docs"]
 
-	root --> prisma[prisma/]
-	prisma --> schema[schema.prisma\n数据模型]
-	prisma --> migrations[migrations/\n迁移历史]
+	root --> api
+	root --> prisma
+	root --> publicDir
+	root --> src
+	root --> docs
 
-	root --> public[public/\n静态资源]
+	schema["schema.prisma（数据模型）"]
+	migrations["migrations（迁移历史）"]
+	prisma --> schema
+	prisma --> migrations
 
-	root --> src[src/]
-	src --> index[index.ts\napp 装配/中间件/错误处理]
-	src --> routes[routes/]
-	routes --> clientRoutes[client/\n客户端路由 /api/*]
-	routes --> adminRoutes[admin/\n管理端路由 /admin/*]
-	src --> controllers[controllers/]
-	controllers --> clientControllers[client/\n客户端业务]
-	controllers --> adminControllers[admin/\n管理端业务]
-	src --> middleware[middleware/\njwt/session/upload]
-	src --> services[services/\n服务层]
-	src --> utils[utils/\n通用工具]
+	index["index.ts（app 装配/中间件/错误处理）"]
+	routes["routes"]
+	controllers["controllers"]
+	middleware["middleware（jwt/session/upload 等）"]
+	services["services（服务层）"]
+	utils["utils（通用工具）"]
+	src --> index
+	src --> routes
+	src --> controllers
+	src --> middleware
+	src --> services
+	src --> utils
 
-	root --> docs[docs/\n文档]
+	clientRoutes["client（客户端路由：/api）"]
+	adminRoutes["admin（管理端路由：/admin）"]
+	routes --> clientRoutes
+	routes --> adminRoutes
+
+	clientControllers["client（客户端业务）"]
+	adminControllers["admin（管理端业务）"]
+	controllers --> clientControllers
+	controllers --> adminControllers
 ```
 
 ### 按场景找代码
