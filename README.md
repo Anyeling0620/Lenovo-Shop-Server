@@ -3,24 +3,56 @@
 联想商城后端服务（配套 `lenovo-shop` 前台与 `lenovo-admin` 管理端）。
 
 - 技术栈：Hono + Prisma(MySQL) + TypeScript
-- 本地运行：`tsx watch src/index.ts`
-- 静态资源：本地开发时可通过 `/static/*` 访问 `public/`
+- 运行方式：本地 `pnpm dev`（内部为 `tsx watch src/index.ts`）
+- 静态资源：开发环境可通过 `/static/*` 访问 `public/`
 
-## 导航
+## 概览
 
-- [主要功能](#主要功能按代码实际路由)
-- [快速上手](#快速上手3-分钟跑通一次完整流程)
-- [鉴权说明](#鉴权说明)
-- [请求与返回约定](#请求与返回约定联调必看)
-- [接口速查](#接口速查更可视化--按模块)
-- [文件上传](#文件上传接口说明multipartform-data)
+### 这个服务提供什么？
+
+- 面向 C 端（`/api/*`）：用户注册/登录、商品浏览、下单支付（代金券）、售后评价等。
+- 面向管理端（`/admin/*`）：管理后台接口（基于 Cookie Session）。
+
+### 你需要知道的边界
+
+- 本服务默认以 **MySQL** 为持久化存储，数据模型由 Prisma 管理（`prisma/schema.prisma`）。
+- 图片等静态资源放在 `public/`，本地开发通过 `/static/*` 暴露。
+- README 给的是“对接与定位”视角；更完整的接口说明请看 `docs/API.html`。
+
+## 文档导航
+
+- [环境要求](#环境要求)
+- [快速开始（推荐）](#快速开始推荐)
+- [快速对接速览](#快速对接速览)
+- [模块与路由总览](#模块与路由总览)
+- [鉴权与会话](#鉴权与会话)
+- [请求/返回约定](#请求返回约定)
+- [错误处理与错误码](#错误处理与错误码)
+- [HTTP 状态码与业务 code 约定](#http-状态码与业务-code-约定)
+- [接口速查（按模块）](#接口速查按模块)
+- [文件上传（multipart/form-data）](#文件上传multipartform-data)
 - [本地开发](#本地开发)
 - [生产构建与运行](#生产构建与运行)
-- [部署到-vercel](#部署到-vercel)
+- [部署到 Vercel](#部署到-vercel)
+- [常见问题与排错](#常见问题与排错)
+- [安全与生产建议](#安全与生产建议)
 - [项目结构与代码速查](#项目结构与代码速查)
 - [更多文档](#更多文档)
 
-## 主要功能（按代码实际路由）
+## 环境要求
+
+在开始之前，请确保你的开发环境满足以下条件：
+
+- Node.js：建议使用项目 `package.json` 声明的范围（若未声明，建议 Node 18+）
+- 包管理器：pnpm（仓库已提供 `pnpm-lock.yaml`）
+- 数据库：MySQL（本地开发/测试建议单独实例，避免污染生产数据）
+
+可选依赖：
+
+- 发送验证码：需要配置 QQ 邮箱 SMTP（见下文环境变量）
+- 图片/静态资源：默认使用本地 `public/` 目录
+
+## 模块与路由总览
 
 | 模块 | 前缀 | 说明 |
 |---|---|---|
@@ -31,9 +63,11 @@
 | 售后 | `/api/after-sale/*` | 退换修、投诉等 |
 | 管理端 | `/admin/*` | 管理后台接口（Cookie Session） |
 
-> 路由装配见 `src/index.ts`。
+> 路由总装配见 `src/index.ts`。
 
-## 快速上手：3 分钟跑通一次完整流程
+## 快速开始（推荐）
+
+> 目标：3 分钟跑通一次“服务启动 → 登录 → 带鉴权调用接口”。
 
 1) 启动服务后先确认健康检查：
 
@@ -57,7 +91,18 @@
 
 > 下面的“接口速查”给了按模块整理的清单与示例。
 
-## 鉴权说明
+## 快速对接速览
+
+| 项目 | 约定 |
+|---|---|
+| Base URL（本地） | `http://localhost:3003` |
+| 健康检查 | `GET /api/ping`、`GET /api/ping-test` |
+| 客户端鉴权 | `Authorization: Bearer <ACCESS_TOKEN>` |
+| 管理端鉴权 | Cookie：`admin_session`（浏览器请求需 `credentials: 'include'`） |
+| 静态资源（开发） | `/static/*` → 映射到 `public/` |
+| 响应基本形态（错误） | `{ code, message, data }`（见“错误处理与错误码”） |
+
+## 鉴权与会话
 
 - 客户端（`/api/*`）：JWT
 	- 严格鉴权：`src/middleware/jwt.middleware.ts`
@@ -67,7 +112,7 @@
 	- 中间件：`src/middleware/session.middleware.ts`
 	- 白名单：`POST /admin/login` 不需要 session
 
-## 请求与返回约定（联调必看）
+## 请求/返回约定
 
 ### 基础 URL
 
@@ -102,7 +147,61 @@ Authorization: Bearer <ACCESS_TOKEN>
 
 不同 controller 的成功返回结构可能不完全统一；联调时建议优先查看对应 controller 文件。
 
-## 接口速查（更可视化 / 按模块）
+### 环境变量（对接与部署必读）
+
+> `.env` **不要提交到 git**。本地开发与线上部署请分别配置。
+
+#### 必填（服务无法启动/核心功能不可用）
+
+- `DATABASE_URL`：Prisma(MySQL) 连接串
+- `ACCESS_TOKEN_SECRET`、`REFRESH_TOKEN_SECRET`：JWT 密钥
+
+#### 建议配置（与前端联调/跨域强相关）
+
+- `PORT`：服务端口（默认 3003）
+- `HOST`：监听地址（开发常用 `0.0.0.0`）
+- `COOKIE_DOMAIN`：管理端 session cookie 域
+- `CORS_ORIGINS`：允许跨域来源（逗号分隔）
+
+#### 可选（不配置则相关能力不可用/会失败）
+
+- `QQ_EMAIL_USER`、`QQ_EMAIL_PASS`、`QQ_EMAIL_HOST`：发送验证码邮件
+
+> 详见下方“本地开发 → 配置环境变量”示例。
+
+## 错误处理与错误码
+
+服务在 `src/index.ts` 做了全局错误兜底：
+
+- **业务错误**：controller 主动抛出 `HTTPException` → 返回 `{ code, message, data }`
+- **系统错误**：未捕获异常 → 返回 `code=500`、`message=服务器内部错误`
+
+落地建议（对接方）：
+
+- 以 `code` 判断业务成败，不要只看 HTTP Status。
+- `message` 用于展示或日志；`data` 为可选上下文。
+
+## HTTP 状态码与业务 code 约定
+
+为便于前后端联调，这里给出推荐约定（实际以 controller 实现为准）：
+
+- **HTTP Status**：用于表达“请求层面是否成功到达服务并被处理”。
+	- 200：成功（多数接口）
+	- 400：参数错误/请求格式错误
+	- 401：未登录/Token 缺失或无效
+	- 403：已登录但无权限
+	- 404：路由不存在
+	- 415：Content-Type 不支持（上传/表单常见）
+	- 500：服务器内部错误
+- **业务 code**：用于表达“业务判定的成功/失败”。
+	- 推荐：`code === 0` 表示成功，其余为业务错误码（若项目采用不同约定，请以实际返回为准）。
+
+对接建议：
+
+- 前端统一拦截：先按 HTTP Status 分类（401 走登录态处理），再按 `code` 做业务提示。
+- 联调阶段把 `{ code, message, data }` 记录到日志，定位效率最高。
+
+## 接口速查（按模块）
 
 > 说明：这里是“按路由文件”整理的接口索引，细节参数以 controller 为准。
 
@@ -249,7 +348,7 @@ Authorization: Bearer <ACCESS_TOKEN>
 | GET | `/admin/account/profile` | Session | 个人信息 |
 | PATCH | `/admin/account/profile` | Session | 更新个人信息（支持上传） |
 
-## 文件上传接口说明（multipart/form-data）
+## 文件上传（multipart/form-data）
 
 项目使用 `multer`，中间件为 `src/middleware/upload.middleware.ts`。
 
@@ -272,6 +371,8 @@ Authorization: Bearer <ACCESS_TOKEN>
 3) 如果返回 415/400，多半是字段名或 body 格式不匹配
 
 ## 本地开发
+
+> 适用于“本地启动后端 + 连接本地 MySQL + 与前端联调”的常见场景。
 
 ### 1) 安装依赖
 
@@ -345,6 +446,45 @@ Vercel Serverless 入口：`api/[...route].ts`。
 - 在 Vercel 的环境变量中配置 `.env` 对应的值（至少 `DATABASE_URL`、JWT secrets）。
 - `src/index.ts` 中会检测 `process.env.VERCEL`：Vercel 环境下不会调用 `serve()`，由 Vercel runtime 托管。
 
+## 常见问题与排错
+
+### 1) 跨域（CORS）失败
+
+典型现象：浏览器控制台出现 CORS 报错，或管理端请求不携带 cookie。
+
+检查点：
+
+- 前端请求是否设置 `credentials: 'include'`（管理端必须）
+- `.env` 的 `CORS_ORIGINS` 是否包含前端来源（协议+域名+端口）
+- `src/index.ts` 中是否对 localhost/127.0.0.1/.vercel.app 做了额外放行
+
+### 2) 401 / 403
+
+- 401：通常是 token 缺失、格式不对、过期或 secret 不一致
+	- 确认请求头：`Authorization: Bearer <ACCESS_TOKEN>`
+	- 确认 `.env` 的 `ACCESS_TOKEN_SECRET`/`REFRESH_TOKEN_SECRET` 与签发时一致
+- 403：通常是已登录但缺少权限（管理端常见）
+	- 优先查看对应路由是否增加了权限校验/白名单
+
+### 3) 上传接口 415 / 400
+
+- 确认 `Content-Type: multipart/form-data`
+- 文件字段名与 controller/middleware 约定一致
+- 文本字段是否完整（例如订单 id、原因等）
+
+### 4) Prisma 连接失败
+
+- 检查 `DATABASE_URL` 是否正确（用户/密码/库名/端口）
+- MySQL 服务是否启动、端口是否可达
+- 首次运行是否已执行 `pnpm prisma generate` 与迁移
+
+## 安全与生产建议
+
+- **不要使用 README 示例中的默认 JWT 密钥**：生产务必替换为强随机串。
+- **不要把 `.env` 提交到仓库**；生产环境使用平台环境变量（Vercel/容器等）。
+- **数据库账号最小权限**：生产建议使用专用账号，只授予所需库的权限。
+- **上传文件风控**：建议限制文件类型/大小/数量，并对外链访问做必要鉴权（若未来需要）。
+
 ## 项目结构与代码速查
 
 > 这一节用于“快速定位代码在哪”。如果你要看更偏产品/模块的接口清单，请优先看上面的「接口速查」。
@@ -369,26 +509,34 @@ Vercel Serverless 入口：`api/[...route].ts`。
 
 ### 目录树（可视化）
 
-```text
-lenovo-shop-server/
-	api/
-		[...route].ts            # Vercel serverless 入口（handle(app)）
-	prisma/
-		schema.prisma            # 全量数据模型
-		migrations/              # 迁移历史
-	public/                    # 静态资源（图片等）
-	src/
-		index.ts                 # Hono app 装配、CORS、静态资源、错误处理
-		routes/
-			client/                # 客户端路由（/api/*）
-			admin/                 # 管理端路由（/admin/*）
-		controllers/
-			client/                # 客户端业务
-			admin/                 # 管理端业务
-		middleware/              # jwt/session/ip/upload 等中间件
-		services/                # 业务服务层（如 session 校验等）
-		utils/                   # db、token、通用工具
-	docs/                      # 额外文档（HTML/说明）
+> GitHub / VS Code 都支持渲染 Mermaid。若你的渲染器不支持，可临时参考上一版 README 的文本树。
+
+```mermaid
+flowchart TD
+	root[lenovo-shop-server/]
+
+	root --> api[api/]
+	api --> vercel[...[route].ts\nVercel Serverless 入口]
+
+	root --> prisma[prisma/]
+	prisma --> schema[schema.prisma\n数据模型]
+	prisma --> migrations[migrations/\n迁移历史]
+
+	root --> public[public/\n静态资源]
+
+	root --> src[src/]
+	src --> index[index.ts\napp 装配/中间件/错误处理]
+	src --> routes[routes/]
+	routes --> clientRoutes[client/\n客户端路由 /api/*]
+	routes --> adminRoutes[admin/\n管理端路由 /admin/*]
+	src --> controllers[controllers/]
+	controllers --> clientControllers[client/\n客户端业务]
+	controllers --> adminControllers[admin/\n管理端业务]
+	src --> middleware[middleware/\njwt/session/upload...]
+	src --> services[services/\n服务层]
+	src --> utils[utils/\n通用工具]
+
+	root --> docs[docs/\n文档]
 ```
 
 ### 按场景找代码
@@ -423,10 +571,10 @@ lenovo-shop-server/
 
 本仓库额外提供了静态 HTML 文档（适合直接在浏览器打开）：
 
-- `docs/API.html`：更完整的 API 文档（HTML）
-- `docs/数据库模型设计文档.html`：数据库模型说明（HTML，基于 `prisma/schema.prisma`）
-- `docs/README.md`：docs 导航
+- [`docs/API.html`](./docs/API.html)：更完整的 API 文档（HTML）
+- [`docs/数据库模型设计文档.html`](./docs/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%A8%A1%E5%9E%8B%E8%AE%BE%E8%AE%A1%E6%96%87%E6%A1%A3.html)：数据库模型说明（HTML，基于 `prisma/schema.prisma`）
+- [`docs/README.md`](./docs/README.md)：docs 导航
 
 另外，原 README 末尾的“数据库表字段草案”已整理到：
 
-- `docs/db-tables.md`
+- [`docs/db-tables.md`](./docs/db-tables.md)
