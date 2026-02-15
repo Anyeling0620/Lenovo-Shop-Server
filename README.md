@@ -1,342 +1,335 @@
-To install dependencies:
+# lenovo-shop-server
+
+联想商城后端服务（配套 `lenovo-shop` 前台与 `lenovo-admin` 管理端）。
+
+- 技术栈：Hono + Prisma(MySQL) + TypeScript
+- 本地运行：`tsx watch src/index.ts`
+- 静态资源：本地开发时可通过 `/static/*` 访问 `public/`
+
+## 主要功能（按代码实际路由）
+
+| 模块 | 前缀 | 说明 |
+|---|---|---|
+| 客户端认证 | `/api/auth/*` | 注册/登录/刷新/登出（JWT） |
+| 用户信息 | `/api/user/*` | 用户资料等 |
+| 商品 | `/api/products/*` | 商品卡片、搜索、详情、评价、领券中心 |
+| 订单 | `/api/order/*` | 下单、取消、支付(代金券)、列表、详情、确认收货 |
+| 售后 | `/api/after-sale/*` | 退换修、投诉等 |
+| 管理端 | `/admin/*` | 管理后台接口（Cookie Session） |
+
+> 路由装配见 `src/index.ts`。
+
+## 快速上手：3 分钟跑通一次完整流程
+
+1) 启动服务后先确认健康检查：
+
+- `GET /api/ping`
+- `GET /api/ping-test`
+
+2) 客户端登录（获取 JWT）：
+
+- `POST /api/auth/register`（可选，首次注册）
+- `POST /api/auth/login`
+
+3) 带 JWT 调用需要登录的接口：
+
+- 例如：`GET /api/user/login-user-info`
+- 例如：`POST /api/order/create`
+
+4) 管理端登录（拿到 Cookie Session）：
+
+- `POST /admin/login`
+- 后续请求自动携带 `admin_session` cookie（浏览器场景）
+
+> 下面的“接口速查”给了按模块整理的清单与示例。
+
+## 鉴权说明
+
+- 客户端（`/api/*`）：JWT
+	- 严格鉴权：`src/middleware/jwt.middleware.ts`
+	- 宽松鉴权（可选登录态）：`src/middleware/jwt-loose.middleware.ts`
+- 管理端（`/admin/*`）：Cookie Session
+	- cookie 名：`admin_session`
+	- 中间件：`src/middleware/session.middleware.ts`
+	- 白名单：`POST /admin/login` 不需要 session
+
+## 请求与返回约定（联调必看）
+
+### 基础 URL
+
+- 本地：`http://localhost:3003`
+- 所有接口 Path 都是相对路径，例如：`/api/auth/login`
+
+### 客户端 JWT 怎么传
+
+项目里 JWT 中间件会从请求头读取 token（常见方案是 `Authorization: Bearer <token>`）。如果你前端里用了其它 key，请以 `src/middleware/jwt.middleware.ts` 的实现为准。
+
+推荐写法（示例）：
+
+```http
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+### 管理端 Session 怎么传
+
+管理端鉴权依赖 Cookie：`admin_session`，中间件见 `src/middleware/session.middleware.ts`。
+
+浏览器同域/跨域时要注意：
+
+- 前端请求需要 `credentials: 'include'`
+- 后端已开启 `cors({ credentials: true })`
+
+### 返回结构
+
+全局错误处理在 `src/index.ts`：
+
+- 业务抛出 `HTTPException` 时：返回 `{ code, message, data }`
+- 未捕获异常：`code=500`、`message=服务器内部错误`
+
+不同 controller 的成功返回结构可能不完全统一；联调时建议优先查看对应 controller 文件。
+
+## 接口速查（更可视化 / 按模块）
+
+> 说明：这里是“按路由文件”整理的接口索引，细节参数以 controller 为准。
+
+### 1) 健康检查
+
+| Method | Path | 鉴权 | 备注 |
+|---|---|---|---|
+| GET | `/api/ping` | 无 | 文本 Pong |
+| GET | `/api/ping-test` | 无 | 返回 json+时间 |
+
+### 2) 客户端认证 `/api/auth/*`
+
+路由文件：`src/routes/client/auth.routes.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/auth/register` | 无 | 注册 |
+| POST | `/api/auth/login` | 无 | 登录，返回 token |
+| POST | `/api/auth/refresh` | 无 | 刷新 token |
+| POST | `/api/auth/logout` | JWT | 登出 |
+
+#### 发送验证码
+
+路由文件：`src/routes/client/send-code.routes.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/send-verification-code` | 无 | 发送邮箱验证码（依赖 QQ 邮箱配置） |
+
+### 3) 设备管理（登录设备）
+
+路由文件：`src/routes/client/device.routes.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| GET | `/api/auth/devices` | JWT | 查询已登录设备 |
+| POST | `/api/auth/logout-device` | JWT | 注销指定设备 |
+| POST | `/api/auth/logout-other-devices` | JWT | 注销其它设备 |
+
+### 4) 用户与账户 `/api/user/*`
+
+路由文件：`src/routes/client/user-info.routes.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| GET | `/api/user/login-user-info` | JWT | 获取当前登录用户信息 |
+| GET | `/api/user/account-info` | JWT | 获取账号信息 |
+| POST | `/api/user/upload-avatar` | JWT | 上传头像（multipart） |
+| POST | `/api/user/update-info` | JWT | 更新资料 |
+| POST | `/api/user/change-email` | JWT | 修改邮箱 |
+| POST | `/api/user/change-password` | JWT | 修改密码 |
+
+#### 购物车
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/user/add-shopping-card` | JWT | 加入购物车 |
+| DELETE | `/api/user/delete-shop-cards` | JWT | 批量删除购物车项 |
+| GET | `/api/user/shopping-cards` | JWT | 获取购物车列表 |
+
+#### 优惠券 / 代金券
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/user/coupon-center/claim` | JWT | 领券 |
+| GET | `/api/user/coupons` | JWT | 我的优惠券 |
+| GET | `/api/user/vouchers` | JWT | 我的代金券 |
+| GET | `/api/user/coupons/:product-id` | JWT | 指定商品可用券 |
+
+#### 收货地址
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/user/add-address` | JWT | 新增地址 |
+| PUT | `/api/user/update-address/:address-id` | JWT | 修改地址 |
+| DELETE | `/api/user/remove-address/:address-id` | JWT | 删除地址 |
+| GET | `/api/user/address-list` | JWT | 地址列表 |
+| PATCH | `/api/user/set-default/:address-id` | JWT | 设为默认地址 |
+
+### 5) 商品 `/api/products/*`
+
+路由文件：`src/routes/client/product.routes.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| GET | `/api/products/product-cards/:category-code` | 可选 JWT | 分类商品卡片 |
+| GET | `/api/products/new-product-cards` | 可选 JWT | 新品 |
+| GET | `/api/products/index-product-cards` | 可选 JWT | 首页推荐 |
+| GET | `/api/products/seckill-product-cards` | 可选 JWT | 秒杀商品卡片 |
+| GET | `/api/products/search-product-cards` | 可选 JWT | 搜索 |
+| GET | `/api/products/:productId/evaluations` | 无 | 商品评价列表 |
+| GET | `/api/products/evaluations/:evaluationId/like` | JWT | 点赞评价 |
+| GET | `/api/products/shelf-products/:id/detail` | 可选 JWT | 货架商品详情 |
+| GET | `/api/products/seckill-products/:seckillId/:id/detail` | 可选 JWT | 秒杀商品详情 |
+| GET | `/api/products/coupon-center/coupons` | 可选 JWT | 领券中心列表 |
+
+### 6) 订单 `/api/order/*`
+
+路由文件：`src/routes/client/order.route.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/order/create` | JWT | 创建订单 |
+| POST | `/api/order/cancel` | JWT | 取消订单 |
+| POST | `/api/order/pay/voucher` | JWT | 代金券支付 |
+| POST | `/api/order/payment/status` | JWT | 查询支付状态 |
+| GET | `/api/order/list` | JWT | 简单订单列表 |
+| GET | `/api/order/order-detail/:id` | JWT | 订单详情 |
+| GET | `/api/order/stats` | JWT | 用户订单统计 |
+| GET | `/api/order/list/query` | JWT | 订单列表（带筛选） |
+| DELETE | `/api/order/delete-order/:orderId` | JWT | 删除订单 |
+| POST | `/api/order/confirm-receipt` | JWT | 确认收货 |
+
+### 7) 售后 / 评价 / 吐槽 / 投诉 `/api/after-sale/*`
+
+路由文件：`src/routes/client/after-sale.route.ts`
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/api/after-sale/apply` | JWT | 申请售后（支持上传） |
+| PUT | `/api/after-sale/cancel/:id` | JWT | 取消售后 |
+| POST | `/api/after-sale/complaint` | JWT | 提交投诉（支持上传） |
+| POST | `/api/after-sale/evaluation` | JWT | 提交评价（支持上传） |
+| DELETE | `/api/after-sale/evaluation/:id` | JWT | 删除评价 |
+| DELETE | `/api/after-sale/complaint/:id` | JWT | 删除投诉 |
+| POST | `/api/after-sale/comment` | JWT | 吐槽/评论（支持上传） |
+| GET | `/api/after-sale/evaluations` | JWT | 我的评价列表 |
+| GET | `/api/after-sale/comments` | JWT | 我的吐槽列表 |
+| GET | `/api/after-sale/after-sales` | JWT | 售后列表 |
+| GET | `/api/after-sale/complaints` | JWT | 投诉列表 |
+| GET | `/api/after-sale/after-sales/:id` | JWT | 售后详情 |
+
+### 8) 管理端 `/admin/*`
+
+路由文件：`src/routes/admin/admin.routes.ts`
+
+管理端接口较多，建议按菜单维度查看路由文件。这里列出关键入口：
+
+| Method | Path | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/admin/login` | 无 | 管理端登录（写入 `admin_session`） |
+| POST | `/admin/logout` | Session | 登出 |
+| GET | `/admin/permissions` | Session | 当前管理员权限 |
+| GET | `/admin/account/profile` | Session | 个人信息 |
+| PATCH | `/admin/account/profile` | Session | 更新个人信息（支持上传） |
+
+## 文件上传接口说明（multipart/form-data）
+
+项目使用 `multer`，中间件为 `src/middleware/upload.middleware.ts`。
+
+常见上传接口：
+
+- 客户端：`POST /api/user/upload-avatar`
+- 售后：`POST /api/after-sale/apply`、`/complaint`、`/evaluation`、`/comment`
+- 管理端：大量 `POST/PATCH` 接口支持上传（品牌 logo、商品图、banner 等）
+
+建议联调方式：先在浏览器控制台/Swagger-like 工具里用 form-data 试通，再接入前端。
+
+## 本地开发
+
+### 1) 安装依赖
+
 ```sh
 pnpm install
 ```
 
-To run:
-```sh
-pnpm dev
-```
+### 2) 配置环境变量
 
-open http://localhost:3003
+在 `lenovo-shop-server` 根目录创建 `.env`（不要提交到 git）。最小可用示例：
 
-
-
-
-
-## 运行前请先创建 .env 文件，并填入以下内容
-## DATABASE_URL的具体内容请翻群聊天
-```
+```ini
 PORT=3003
 HOST=0.0.0.0
 NODE_ENV=development
-DATABASE_URL="写个中文是提示你看群聊天"
 
-ACCESS_TOKEN_SECRET="dsyctyuioktytg78654tryuhihuesretyguiy5435sdtygy8uhbvgcfrd5"
-REFRESH_TOKEN_SECRET="2345678e5dtyfg7y8ou9oljytyrydtvyg7h8ikjuytrdfyvhu"
+# Prisma(MySQL) 连接串
+# 例：mysql://USER:PASSWORD@HOST:3306/DB_NAME?connection_limit=5
+DATABASE_URL="mysql://root:password@localhost:3306/lenovo_shop"
+
+# JWT（请在生产环境替换为强随机串）
+ACCESS_TOKEN_SECRET="please-change-me"
+REFRESH_TOKEN_SECRET="please-change-me"
+
+# 发送验证码/邮件（可选；不配时相关功能会失败）
 QQ_EMAIL_USER=""
 QQ_EMAIL_PASS=""
 QQ_EMAIL_HOST="smtp.qq.com"
 
+# 管理端 cookie 域名
 COOKIE_DOMAIN="localhost"
-CORS_ORIGINS="http://localhost:3000"
+
+# 允许跨域的来源（代码里还额外放行 localhost、127.0.0.1、.vercel.app、https://shop.jxutcm.top）
+CORS_ORIGINS="http://localhost:3000,http://localhost:5173"
 ```
 
-## pnpm prisma generate // 生成数据库文件
-## pnpm prisma migrate dev --name init  // 创建数据库表
+### 3) 初始化数据库（Prisma）
 
+```sh
+pnpm prisma generate
+pnpm prisma migrate dev --name init
+```
 
-// 数据库
+Prisma schema：`prisma/schema.prisma`。
 
-品牌表
-id
-品牌名称
-品牌编码 （如Lenovo）
-品牌描述
-品牌logo
-状态 （启用/禁用/下架）
-添加时间
-添加者id （创建该品牌的管理员id）
-更新时间
-备注
+### 4) 启动服务
 
-商品品类表
-id
-品类名称 顶级品类：（笔记本，台式机，显示器，平板，手机，配件，服务 ……）
-品类编码 （NOTEBOOK、DESKTOP、MONITOR、PAD、PHONE、ACCESSORIES、SERVICE ……）
-父级品类id
-状态 （启用/禁用）
-添加时间
-添加者id （创建该品类管理员id）
+```sh
+pnpm dev
+```
 
+默认地址：`http://localhost:3003`
 
-商品基本信息表
-id
-商品品牌id
-商品品类id
-商品名称
-商品副标题
-商品描述
-商品主图
-添加时间
-添加者id （创建该商品的管理员id）
-更新时间
-状态 （正常 / 下架 / 删除）
+### 5) 冒烟检查
 
-商品标签表
-id
-标签名称
-展示优先级
-状态 （启用/禁用）
-添加时间
-添加者id （创建该标签的管理员id）
-备注
+- `GET /api/ping`
+- `GET /api/ping-test`
+- 本地静态资源：`GET /static/images/...`（映射到 `public/`）
 
+## 生产构建与运行
 
-商品-标签关联表
-id
-商品id
-标签id
-关联时间
-状态（生效/失效）
+```sh
+pnpm build
+pnpm start
+```
 
-商品配置表
-id
-商品id
-配置1（颜色等）
-配置2 （内存等，16G+512G等）
-配置3 （可选，尺寸等）
-售价
-原价
-配置图片
-创建时间
-更新时间
-状态 （正常 / 下架 ）
+## 部署到 Vercel
 
+Vercel Serverless 入口：`api/[...route].ts`。
 
-商品介绍宣传图表（商品详情页下面的介绍海报）
-id
-商品id
-序号
-宣传图
-添加时间
+- 在 Vercel 的环境变量中配置 `.env` 对应的值（至少 `DATABASE_URL`、JWT secrets）。
+- `src/index.ts` 中会检测 `process.env.VERCEL`：Vercel 环境下不会调用 `serve()`，由 Vercel runtime 托管。
 
+## 代码位置速查
 
-
-商品外观图表
-id
-商品id
-外观图
-添加时间
-
-货架商品表
-id
-货架专区id (品类表id)
-商品id
-专栏轮播 bool
-专栏轮播海报
-自营 bool
-可定制 bool
-分期 （0/6/12/24）
-以旧换新 bool
-上架时间
-更新时间
-下架时间
-状态 （在售/售罄/下架）
-
-
-
-库存表
-id
-商品配置id
-库存数量
-冻结数量
-库存预警数量 （低于该数量时发送预警）
-更新时间 （入库/出库/冻结/解冻）
-最后入库时间
-最后出库时间
-
-上架商品数量表
-id
-货架商品id
-商品id
-商品配置id
-上架数量 
-锁定数量 （订单未支付时锁定库存）
-更新时间
-
-
-新品推送表
-id
-货架商品id
-新品轮播 bool
-新品专区轮播海报
-生效时间
-结束时间
-状态 （展示中，已下架）
-
-首页推送表
-id
-货架商品id
-首页轮播 bool
-首页区轮播海报
-生效时间
-结束时间
-状态 （展示中，已下架）
-
-
-秒杀轮次表
-id
-秒杀轮次标题
-秒杀开始时间
-秒杀结束时间
-状态 （启用/禁用/已结束）
-添加时间
-添加者id （创建该秒杀轮次的管理员id）
-备注
-
-秒杀商品表
-id
-轮次id
-商品id
-优惠方式 （立减/打折 2择1）
-优惠金额 （立减）
-优惠折扣 （打折）
-
-秒杀商品配置表
-id
-秒杀商品id
-商品配置id
-上架数量
-剩余数量
-锁定数量 （防止超卖）
-直接秒杀价 （手动设置的，与优惠无关）
-添加时间
-更新时间
-状态 （正常 / 售罄 ）
-
-
-购物车表
-id
-用户id
-商品id
-配置id
-数量
-状态 （有效/无效）
-商品价格 
-添加时间  
-更新时间
-
-
-领券中心表
-id
-优惠券id
-可领取时间
-可领取数量
-截止时间
-领取限制 （每人限领）
-添加者id （创建该领券中心的管理员id）
-添加时间
-
-优惠券表
-id
-优惠券名称
-优惠券类型 （满减/折扣）
-优惠金额
-优惠折扣率
-门槛金额
-使用条件描述
-使用范围描述
-开始时间
-过期时间
-可叠加 bool
-添加者id （创建该优惠券的管理员id）
-添加时间
-备注
-
-代金券
-id
-标题
-描述
-原始金额
-开始时间
-结束时间
-创建者id （创建该代金券的管理员id）
-备注
-
-
-商品-优惠券可用关联表
-id
-商品id
-优惠券id
-状态 （生效/失效）
-关联时间
-操作人id （创建该关联的管理员id）
-备注
-
-用户-优惠券持有关联表
-id
-用户id
-优惠券id
-优惠券状态 （未使用 / 已使用 / 已过期 ）
-领取时间
-使用时间
-关联订单id
-实际优惠金额
-
-用户-代金券持有关联表
-用户id
-代金券id
-代金券状态 bool
-获取时间
-用尽时间
-使用金额
-剩余金额
-
-
-订单-代金券使用关联表
-订单id
-代金券id
-使用金额
-使用时间
-
-
-订单-商品表
-id
-订单id
-商品id
-商品配置id
-商品数量
-商品价格快照
-商品优惠快照
-商品实付金额快照
-商品名称快照
-商品主图快照
-配置1快照
-配置2快照
-配置3快照
-
-订单表
-id
-用户id
-订单号 (时间戳+随机数,20位数字)
-订单状态（待支付/待发货/已发货/待收货/已收货/已取消）
-支付方式 
-支付金额
-实际支付金额
-支付时间
-收货快照-省编码
-收货快照-市编码
-收货快照-区县编码
-收货快照-街道编码
-收货快照-详细地址
-订单备注
-收货快照-收货人
-收货快照-手机号
-物流单号
-订单创建时间
-支付限制时间 （未在限制时间内支付默认取消）
-订单取消时间
-订单发货时间
-订单收货时间
-订单完成时间
-用户可见状态 bool （用户删除订单后设置false）
-
-
-售后-图片表
-id
-售后id
-图片
+- 服务入口：`src/index.ts`
+- 客户端路由：`src/routes/client/*`
+- 管理端路由：`src/routes/admin/*`
+- 控制器：`src/controllers/**`
+- 中间件：`src/middleware/**`
+- Prisma：`prisma/schema.prisma`
+- 静态资源：`public/`
 
 
 售后表
@@ -346,169 +339,6 @@ id
 订单商品id
 售后类型 （退货/换货/维修）
 售后状态 （申请中/已同意/已拒绝/已寄回/已寄出/已完成）
-售后原因
-售后备注
-申请时间
-同意时间
-拒绝时间
-同意/拒绝原因
-用户寄回物流单号
-收货快照-省编码
-收货快照-市编码
-收货快照-区县编码
-收货快照-街道编码
-收货快照-详细地址
-订单备注
-收货快照-收货人
-收货快照-手机号
-商家寄出物流单号
-发货快照-省编码
-发货快照-市编码
-发货快照-区县编码
-发货快照-街道编码
-发货快照-详细地址
-订单备注
-发货快照-收货人
-发货快照-手机号
-寄回时间
-寄出时间
-完成时间
-处理者id
-
-
-吐槽-图片表
-id
-吐槽id
-图片
-
-吐槽表
-id
-用户id
-订单id
-订单商品id
-吐槽内容
-点赞数
-添加时间
-更新时间
-状态 （撤回/正常/用户删除<即用户不可见>）
-
-吐槽-商家回复表
-id
-吐槽id
-回复内容
-回复时间
-回复者id （管理员id）
-点赞数
-状态 （撤回/正常/用户删除<即用户不可见>）
-
-
-
-评价-图片表
-id
-评价id
-图片
-
-商品评价表
-id
-用户id
-商品id
-商品配置id
-评价星星数 （1~5，可以0.5为单位）
-点赞数
-评价内容
-添加时间
-更新时间
-状态 （撤回/正常/用户删除<即用户不可见>）
-
-评价-商家回复表
-id
-评价id
-回复内容
-回复时间
-回复者id （管理员id）
-点赞数
-状态 （撤回/正常/用户删除<即用户不可见>）
-
-投诉-图片表
-id
-投诉id
-图片
-
-售后投诉表
-id
-用户id
-售后id
-投诉内容
-添加时间
-更新时间
-处理 bool
-处理者id
-处理时间
-处理结果
-状态 （/撤回/正常/用户删除<即用户不可见>）
-
-
-省 / 市 / 区（县）/ 街道 4 级行政区划字典表
-行政区划编码
-行政区划名称
-上级行政区划编码
-行政区划层级
-
-
-收货信息表
-id
-用户id
-省份编码
-城市编码
-区县编码
-街道编码
-详细地址
-收货人
-手机号
-是否默认bool
-创建时间
-更新时间
-
-
-管理员表
-id
-账号
-密码
-姓名
-邮箱
-头像
-工作昵称  （Lenovo客服小李类似的）
-状态（启用/禁用）
-创建时间
-最后登陆时间
-创建者id （创建该管理员的管理员id）
-
-管理员-身份关联表
-id
-管理员id
-身份id
-分配者id （分配该身份的管理员id）
-分配时间
-状态 （启用/禁用）
-失效时间 （临时身份分配时有效）
-
-管理员-商品专区关联表
-id
-管理员id
-专区id （品类表id）
-创建者id （创建该专区管理员的管理员id）
-创建时间
-状态 （启用/禁用）
-
-
-身份表
-id
-身份名称 （超级管理员（拥有一切权限），系统管理员，核销员 ，客服）
-身份编码
-身份描述
-系统预设 bool
-状态 （启用/禁用）
-创建时间
 创建者id （创建该身份的管理员id）
 
 
